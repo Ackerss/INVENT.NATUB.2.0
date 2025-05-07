@@ -20,7 +20,7 @@
     @keyframes flash-error{0%,100%{background:initial}50%{background:#fecaca}}
     .flash-error{animation:flash-error .7s}
 
-    #listaItensTable{width:100%;table-layout:auto;font-size:.9rem} /* table-layout: auto para melhor ajuste */
+    #listaItensTable{width:100%;table-layout:auto;font-size:.9rem}
     #listaItensTable th,#listaItensTable td{padding:4px 2px; border:1px solid #e5e7eb; word-wrap: break-word; text-align: center;}
     #listaItensTable th:first-child, #listaItensTable td:first-child { text-align: left; padding-left: 4px;} /* Código à esquerda */
     #listaItensTable td:nth-child(2), #listaItensTable td:nth-child(3) { text-align: right; padding-right: 4px;} /* Pesos à direita */
@@ -98,50 +98,45 @@
 
     <div class="form-group">
       <span class="form-group-title">Detalhes do Produto</span>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label for="codigoProduto" class="block text-sm font-medium text-gray-700">Código do Produto</label>
-          <input type="text" id="codigoProduto" placeholder="Código"
-                 class="mt-1 block w-full border border-gray-300 p-2 rounded" enterkeyhint="next">
-          <div id="nomeProdutoDisplay" class="mt-1 text-sm text-gray-600 h-5"></div>
-          <div id="codigoProdutoError" class="error-message"></div>
-        </div>
-        <div>
-          <label for="pesoTaraKg" class="block text-sm font-medium text-gray-700">
-            Peso da Tara (kg) <span id="letraPoteSelecionado" class="text-blue-600 font-semibold">(Nenhuma)</span>
-          </label>
-          <input type="text" inputmode="decimal" id="pesoTaraKg" placeholder="0.000"
-                 class="mt-1 block w-full border border-gray-300 p-2 rounded" enterkeyhint="next">
-           <div id="pesoTaraKgError" class="error-message"></div>
-        </div>
+      <div> <label for="codigoProduto" class="block text-sm font-medium text-gray-700">Código do Produto</label>
+        <input type="text" id="codigoProduto" placeholder="Código"
+               class="mt-1 block w-full border border-gray-300 p-2 rounded" enterkeyhint="next">
+        <div id="nomeProdutoDisplay" class="mt-1 text-sm text-gray-600 h-5"></div>
+        <div id="codigoProdutoError" class="error-message"></div>
       </div>
     </div>
 
     <div class="form-group">
-      <span class="form-group-title">Tara Rápida (Potes)</span>
-      <div id="botoesTaraContainer" class="flex flex-wrap">
-        <span class="text-gray-500 text-sm">Carregando potes...</span>
-      </div>
-       <button class="tara-button mt-2" data-tara-kg="0" data-letra="Nenhuma">Nenhuma</button>
-    </div>
-
-    <div class="form-group">
-      <span class="form-group-title">Pesagem</span>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-              <label for="pesoComPoteKg" class="block text-sm font-medium text-gray-700">Peso COM POTE (kg)</label>
-              <input type="text" inputmode="decimal" id="pesoComPoteKg" placeholder="0.000"
-                     class="mt-1 block w-full border border-gray-300 p-2 rounded" enterkeyhint="next">
-              <div id="pesoComPoteKgError" class="error-message"></div>
-          </div>
-           <div>
-              <label for="pesoExtraKg" class="block text-sm font-medium text-gray-700">Peso Extra Estoque (kg)</label>
-              <input type="text" inputmode="decimal" id="pesoExtraKg" placeholder="0.000"
-                     class="mt-1 block w-full border border-gray-300 p-2 rounded" enterkeyhint="go">
-              <p class="mt-1 text-xs text-gray-500">Opcional: Peso de pacotes fechados, etc.</p>
-              <div id="pesoExtraKgError" class="error-message"></div>
-          </div>
-      </div>
+        <span class="form-group-title">Tara e Pesagem</span>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
+            <div>
+                <label for="pesoTaraKg" class="block text-sm font-medium text-gray-700">
+                    Peso da Tara (kg) <span id="letraPoteSelecionado" class="text-blue-600 font-semibold">(Nenhuma)</span>
+                </label>
+                <input type="text" inputmode="decimal" id="pesoTaraKg" placeholder="0.000"
+                        class="mt-1 block w-full border border-gray-300 p-2 rounded" enterkeyhint="next">
+                <div id="pesoTaraKgError" class="error-message"></div>
+            </div>
+            <div> <label class="block text-sm font-medium text-gray-700 mb-1">Tara Rápida (Potes)</label>
+                <div id="botoesTaraContainer" class="flex flex-wrap">
+                    <span class="text-gray-500 text-sm">Carregando potes...</span>
+                </div>
+                <button class="tara-button mt-2" data-tara-kg="0" data-letra="Nenhuma">Nenhuma <i class="fas fa-check ml-1 hidden"></i></button>
+            </div>
+            <div>
+                <label for="pesoComPoteKg" class="block text-sm font-medium text-gray-700">Peso COM POTE (kg)</label>
+                <input type="text" inputmode="decimal" id="pesoComPoteKg" placeholder="0.000"
+                        class="mt-1 block w-full border border-gray-300 p-2 rounded" enterkeyhint="next">
+                <div id="pesoComPoteKgError" class="error-message"></div>
+            </div>
+            <div>
+                <label for="pesoExtraKg" class="block text-sm font-medium text-gray-700">Peso Extra Estoque (kg)</label>
+                <input type="text" inputmode="decimal" id="pesoExtraKg" placeholder="0.000"
+                        class="mt-1 block w-full border border-gray-300 p-2 rounded" enterkeyhint="go">
+                <p class="mt-1 text-xs text-gray-500">Opcional: Peso de pacotes fechados, etc.</p>
+                <div id="pesoExtraKgError" class="error-message"></div>
+            </div>
+        </div>
     </div>
 
 
@@ -163,16 +158,17 @@
     <div class="mt-8">
       <div class="flex justify-between items-center mb-3">
         <h2 class="text-xl font-semibold text-gray-800">Itens Pendentes de Envio</h2>
-        <span class="text-sm text-gray-600" id="totalizadorPendentes">Total de Itens: 0</span>
+        <span class="text-sm text-gray-600" id="totalizadorPendentes">Total de Itens: 0 | P.Líq. Total: 0.000 kg</span>
       </div>
       <div class="overflow-x-auto">
         <table id="listaItensTable" class="min-w-full border-collapse border border-gray-300">
           <thead>
-            <tr class="bg-gray-200 text-left">
-              <th class="w-auto">Código</th> <th class="w-auto text-right">P.Líq.Total</th>
-              <th class="w-auto text-right">Tara (Pote)</th>
-              <th class="w-auto text-center">Hora</th>
-              <th class="w-auto text-center">Ações</th>
+            <tr class="bg-gray-200">
+              <th class="px-2 py-1 text-left">Código</th>
+              <th class="px-2 py-1 text-right">P.Líq.Total</th>
+              <th class="px-2 py-1 text-right">Tara (Pote)</th>
+              <th class="px-2 py-1 text-center">Hora</th>
+              <th class="px-2 py-1 text-center">Ações</th>
             </tr>
           </thead>
           <tbody id="listaItensBody">
