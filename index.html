@@ -14,7 +14,7 @@
   <link rel="manifest" href="manifest.json">
 
   <style>
-    /* Estilos (mantidos e adicionados) */
+    /* Estilos (mantidos da versão anterior) */
     @keyframes flash{0%,100%{background:initial}50%{background:#a7f3d0}}
     .flash-success{animation:flash .5s}
     @keyframes flash-error{0%,100%{background:initial}50%{background:#fecaca}}
@@ -61,15 +61,10 @@
     .fade-out { animation: fadeOut 0.3s ease-out forwards; }
 
     .item-status-icon { margin-left: 5px; }
-
     #nomeProdutoDisplay { margin-top: 0.25rem; padding: 0.5rem 0.75rem; background-color: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 0.25rem; font-style: italic; color: #4b5563; min-height: 2.5rem; display: flex; align-items: center; }
     #nomeProdutoDisplay:empty::before { content: "-"; color: #9ca3af; }
-
-    /* NOVO ESTILO: Fundo verde suave para itens enviados */
-    .item-enviado { background-color: #dcfce7; /* Tailwind green-100 */ }
-    /* Estilo para falha (já existia implicitamente, mas definindo explicitamente) */
-    .item-falha { background-color: #fee2e2; /* Tailwind red-100 */ }
-
+    .item-enviado { background-color: #dcfce7; }
+    .item-falha { background-color: #fee2e2; }
   </style>
 </head>
 <body class="bg-gray-100 p-2 sm:p-4 font-sans">
@@ -157,8 +152,7 @@
 
     <div class="mt-8">
       <div class="flex justify-between items-center mb-3">
-        <h2 class="text-xl font-semibold text-gray-800">Itens Pendentes</h2> <span class="text-sm text-gray-600" id="totalizadorPendentes">Itens: 0 | P.Líq.: 0.000 kg</span>
-      </div>
+        <h2 class="text-xl font-semibold text-gray-800">Itens Registrados Localmente</h2> <span class="text-sm text-gray-600" id="totalizadorPendentes">Pendentes: 0 | P.Líq.: 0.000 kg</span> </div>
       <div class="overflow-x-auto">
         <table id="listaItensTable" class="min-w-full border-collapse border border-gray-300">
           <thead>
@@ -171,7 +165,7 @@
             </tr>
           </thead>
           <tbody id="listaItensBody">
-            <tr><td colspan="5" class="text-center text-gray-500 py-4">Nenhum item local pendente.</td></tr>
+            <tr><td colspan="5" class="text-center text-gray-500 py-4">Nenhum item registrado localmente.</td></tr>
           </tbody>
         </table>
       </div>
@@ -180,7 +174,7 @@
     <div class="flex flex-col sm:flex-row gap-3 mt-6">
        <button id="limparSessaoLocalBtn"
               class="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-3 rounded text-sm sm:text-base">
-         <i class="fas fa-trash-alt mr-1 sm:mr-2"></i> Limpar Pendentes
+         <i class="fas fa-trash-alt mr-1 sm:mr-2"></i> Limpar Lista Local
       </button>
       <button id="enviarTodosBtn"
         class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded disabled:opacity-50 text-sm sm:text-base">
