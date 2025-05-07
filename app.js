@@ -1,11 +1,11 @@
 /* ========= CONFIG ========= */
 const GOOGLE_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbwy_aKGV9xAd9sBJRGG66LohrR3s0l_DbDCnOveCEHaE_RGjNqgTHbkiBX8ngks3-nO/exec'; // Mantido o último URL funcional
-const APP_VERSION = '29-abr-2025 - Fix: Carregando Usuário'; // Versão Atualizada
+  'https://script.google.com/macros/s/AKfycbwy_aKGV9xAd9sBJRGG66LohrR3s0l_DbDCnOveCEHaE_RGjNqgTHbkiBX8ngks3-nO/exec'; // SEU ÚLTIMO URL FUNCIONAL
+const APP_VERSION = '29-abr-2025 - Melhorias UI/UX e Funcionais v2';
 const ENVIO_DELAY_MS = 500;
 
 /* ========= VARS ========= */
-const ITENS_KEY = 'inv_granel_itens_v4'; // Mantendo a chave da versão com edições
+const ITENS_KEY = 'inv_granel_itens_v4';
 const NOME_USUARIO_KEY = 'inventarioGranelUsuario';
 let nomeUsuario = '', enviando = false, letraPoteSel = 'Nenhuma', itens = [], MAPA = {};
 let editandoItemId = null;
@@ -25,7 +25,7 @@ const codigoInp=$('codigoProduto'), nomeDiv=$('nomeProdutoDisplay'),
       overlay=$('overlayNomeUsuario'), inpNome=$('inputNomeUsuario'),
       spanLetra=$('letraPoteSelecionado'), enviarTodosBtn=$('enviarTodosBtn'),
       textoBotaoEnviar=$('textoBotaoEnviar'),
-      contadorPendentes=$('contadorPendentes'), totalizadorPendentes=$('totalizadorPendentes'),
+      totalizadorPendentes=$('totalizadorPendentes'),
       btnLimpar=$('limparSessaoLocalBtn'),
       btnAlterarNome=$('alterarNomeBtn'), salvaNmBtn=$('salvarNomeUsuarioBtn'),
       closeModalNomeBtn=$('closeModalNomeBtn'),
@@ -35,6 +35,7 @@ const codigoProdutoError = $('codigoProdutoError');
 const pesoTaraKgError = $('pesoTaraKgError');
 const pesoComPoteKgError = $('pesoComPoteKgError');
 const pesoExtraKgError = $('pesoExtraKgError');
+const inputNomeUsuarioError = $('inputNomeUsuarioError'); // Adicionado para erro no modal
 
 
 /* ---------- INIT ---------- */
@@ -44,7 +45,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   carregaLocais();
   await carregaPotes();
   renderizaLista();
-  verificaNomeUsuario(); // Chamada principal para nome do usuário
+  verificaNomeUsuario();
   updateBotaoRegistrar();
   selecionaBotaoNenhuma();
   limpaMensagensErro();
@@ -74,12 +75,12 @@ function setupEventListeners() {
       if (inp === pesoComPoteInp || inp === taraInp || inp === pesoExtraInp) {
         atualizaDisplayCalculoPeso();
       }
-      if (inp === codigoInp || inp === pesoComPoteInp || inp === pesoExtraInp) {
-        updateBotaoRegistrar();
-      }
+      // Atualiza botão registrar se qualquer um dos campos chave for alterado
+      updateBotaoRegistrar();
     });
-    if (inp.type === 'number') {
-        inp.addEventListener('keypress', permiteApenasNumerosSeparador);
+    // Validação de entrada para campos numéricos (text com inputmode decimal)
+    if (inp.inputMode === 'decimal') {
+        inp.addEventListener('input', formataEntradaNumerica); // Usar input para permitir colar
     }
   });
 
@@ -95,46 +96,38 @@ function setupEventListeners() {
   btnLimpar.addEventListener('click', limparItensLocais);
 }
 
-/* ---------- Nome Usuário (MODIFICADO) ---------- */
+/* ---------- Nome Usuário ---------- */
 function verificaNomeUsuario() {
   nomeUsuario = localStorage.getItem(NOME_USUARIO_KEY) || '';
-  mostrarNome(); // ATUALIZA O DISPLAY IMEDIATAMENTE
+  mostrarNome();
   if (!nomeUsuario) {
-    abrirModalNome(); // Abre o modal se não houver nome
+    abrirModalNome();
   }
-  // updateBotaoRegistrar() é chamado no DOMContentLoaded após esta função
+  updateBotaoRegistrar(); // Atualiza botões que dependem do nome
 }
-
 function abrirModalNome() {
-  inpNome.value = nomeUsuario; // Preenche com nome atual ou vazio
+  inpNome.value = nomeUsuario;
+  limpaErroCampo(inputNomeUsuarioError); // Limpa erro ao abrir
   overlay.classList.add('active');
   modal.classList.add('active');
   inpNome.focus();
-  if(nomeUsuario) inpNome.select(); // Seleciona se já houver nome para facilitar edição
+  if(nomeUsuario) inpNome.select();
 }
-
 function fecharModalNome() {
     overlay.classList.remove('active');
     modal.classList.remove('active');
-    // Se fechou sem salvar e não tinha nome, o display já foi atualizado por verificaNomeUsuario/mostrarNome
+    limpaErroCampo(inputNomeUsuarioError); // Limpa erro ao fechar
 }
-
 function salvaNome() {
   const n = inpNome.value.trim();
   if (!n) {
-    // Em vez de alert, usar a função de erro do campo se o modal tiver um local para isso
-    // Por ora, mantendo alert para simplicidade no modal.
-    alert('Por favor, digite seu nome.');
+    mostraMensagemErroCampo(inputNomeUsuarioError, 'Por favor, digite seu nome.'); // Usa a div de erro
     inpNome.focus();
     return;
   }
-  nomeUsuario = n;
-  localStorage.setItem(NOME_USUARIO_KEY, n);
-  mostrarNome(); // Atualiza o display principal
-  fecharModalNome();
-  updateBotaoRegistrar(); // Atualiza estado dos botões que dependem do nome
+  limpaErroCampo(inputNomeUsuarioError);
+  nomeUsuario = n; localStorage.setItem(NOME_USUARIO_KEY, n); mostrarNome(); fecharModalNome(); updateBotaoRegistrar();
 }
-
 function mostrarNome() {
   if (nomeUsuario) {
     nomeDisp.textContent = `Usuário: ${nomeUsuario}`;
@@ -150,7 +143,7 @@ async function carregaPotes() {
 
 /* ---------- Gerar Botões de Tara Rápida ---------- */
 function geraBotoesTara() {
-    letras.innerHTML = ''; const potesUnicos = {}; Object.values(MAPA).forEach(p => { if (p.letra && p.tara !== undefined && p.letra !== 'Nenhuma' && !potesUnicos[p.letra]) { potesUnicos[p.letra] = p.tara; } }); Object.keys(potesUnicos).sort().forEach(letra => { const tara = potesUnicos[letra]; const btn = document.createElement('button'); btn.className = 'tara-button'; btn.dataset.taraKg = tara; btn.dataset.letra = letra; btn.textContent = letra; letras.appendChild(btn); });
+    letras.innerHTML = ''; const potesUnicos = {}; Object.values(MAPA).forEach(p => { if (p.letra && p.tara !== undefined && p.letra !== 'Nenhuma' && !potesUnicos[p.letra]) { potesUnicos[p.letra] = p.tara; } }); Object.keys(potesUnicos).sort().forEach(letra => { const tara = potesUnicos[letra]; const btn = document.createElement('button'); btn.className = 'tara-button'; btn.dataset.taraKg = tara; btn.dataset.letra = letra; btn.innerHTML = `${letra} <i class="fas fa-check ml-1 hidden"></i>`; letras.appendChild(btn); });
 }
 
 /* ---------- Funções de Tara ---------- */
@@ -160,6 +153,8 @@ function handleTaraRapidaClick(event) {
 
     desmarcaBotoesTara();
     btn.classList.add('selected');
+    btn.querySelector('i')?.classList.remove('hidden'); // Mostra check
+
     taraInp.value = parseFloat(btn.dataset.taraKg).toFixed(3);
     limpaErroCampo(pesoTaraKgError);
     letraPoteSel = btn.dataset.letra;
@@ -184,13 +179,24 @@ function handleTaraManualInput() {
     desmarcaBotoesTara(); letraPoteSel = 'Manual'; spanLetra.textContent = '(Manual)';
     pesoComPoteInp.classList.remove('input-auto-filled');
     if (!taraInp.value.trim()) { selecionaBotaoNenhuma(); }
+    else { limpaErroCampo(pesoTaraKgError); } // Limpa erro se algo for digitado
     atualizaDisplayCalculoPeso();
 }
 function desmarcaBotoesTara() {
-    letras.querySelectorAll('.tara-button.selected').forEach(b => b.classList.remove('selected')); const btnNenhumaFixo = document.querySelector('.tara-button[data-letra="Nenhuma"]'); if(btnNenhumaFixo) btnNenhumaFixo.classList.remove('selected');
+    document.querySelectorAll('.tara-button.selected').forEach(b => {
+        b.classList.remove('selected');
+        b.querySelector('i')?.classList.add('hidden'); // Esconde check
+    });
 }
 function selecionaBotaoNenhuma() {
-    desmarcaBotoesTara(); const btnNenhumaFixo = document.querySelector('.tara-button[data-letra="Nenhuma"]'); if(btnNenhumaFixo) { btnNenhumaFixo.classList.add('selected'); taraInp.value = parseFloat(btnNenhumaFixo.dataset.taraKg).toFixed(3); letraPoteSel = 'Nenhuma'; spanLetra.textContent = '(Nenhuma)'; }
+    desmarcaBotoesTara(); const btnNenhumaFixo = document.querySelector('.tara-button[data-letra="Nenhuma"]');
+    if(btnNenhumaFixo) {
+        btnNenhumaFixo.classList.add('selected');
+        btnNenhumaFixo.querySelector('i')?.classList.remove('hidden');
+        taraInp.value = parseFloat(btnNenhumaFixo.dataset.taraKg).toFixed(3);
+        letraPoteSel = 'Nenhuma';
+        spanLetra.textContent = '(Nenhuma)';
+    }
     atualizaDisplayCalculoPeso();
 }
 
@@ -201,14 +207,15 @@ function buscaTaraAutomatica() {
   const produto = MAPA[codigo];
   if (produto) {
     nomeDiv.textContent = produto.Nome || 'Produto sem nome';
-    if (!taraInp.value.trim() || letraPoteSel === 'Nenhuma') {
+    if (!taraInp.value.trim() || letraPoteSel === 'Nenhuma' || pesoComPoteInp.classList.contains('input-auto-filled')) { // Se tara vazia, ou nenhuma, ou pote foi auto-zerado
         if (produto.tara !== undefined && produto.tara !== null) {
             taraInp.value = parseFloat(produto.tara).toFixed(3);
             desmarcaBotoesTara();
-            const btnLetra = letras.querySelector(`.tara-button[data-letra="${produto.letra}"]`);
-            if (btnLetra) { btnLetra.classList.add('selected'); letraPoteSel = produto.letra; spanLetra.textContent = `(${produto.letra})`; }
-            else { if(produto.letra === 'Nenhuma') { selecionaBotaoNenhuma(); } else { letraPoteSel = 'Manual'; spanLetra.textContent = '(Manual)'; } }
-        } else { selecionaBotaoNenhuma(); }
+            const btnLetra = document.querySelector(`.tara-button[data-letra="${produto.letra}"]`);
+            if (btnLetra) { btnLetra.classList.add('selected'); btnLetra.querySelector('i')?.classList.remove('hidden'); letraPoteSel = produto.letra; spanLetra.textContent = `(${produto.letra})`; }
+            else { letraPoteSel = 'Manual'; spanLetra.textContent = '(Manual)'; } // Caso raro de letra sem botão
+            pesoComPoteInp.classList.remove('input-auto-filled'); // Remove se preencheu tara de produto
+        } else { selecionaBotaoNenhuma(); } // Produto sem tara, seleciona Nenhuma
     }
   } else {
     if(codigo) nomeDiv.textContent = 'Produto não cadastrado';
@@ -236,30 +243,54 @@ function salvaLocais() { localStorage.setItem(ITENS_KEY, JSON.stringify(itens));
 function limparItensLocais() { if (enviando) { alert("Aguarde o término do envio atual."); return; } if (itens.length === 0) { mostraStatus('Nenhum item para limpar.', 'info'); return; } if (confirm(`Apagar ${itens.length} registro(s) locais?`)) { itens = []; salvaLocais(); mostraStatus('Registros locais limpos.', 'success'); } }
 
 /* ---------- Validação e Feedback de Erro ---------- */
-function permiteApenasNumerosSeparador(event) {
+function formataEntradaNumerica(event) {
+    // Permite apenas números, um ponto ou uma vírgula. Substitui vírgula por ponto.
+    let valor = event.target.value;
+    valor = valor.replace(/[^0-9.,]/g, ''); // Remove caracteres não permitidos
+    valor = valor.replace(',', '.'); // Converte vírgula para ponto
+
+    // Garante apenas um ponto decimal
+    const partes = valor.split('.');
+    if (partes.length > 2) {
+        valor = partes[0] + '.' + partes.slice(1).join('');
+    }
+    event.target.value = valor;
+}
+
+function permiteApenasNumerosSeparador(event) { // Usado no keypress, menos efetivo que 'input' para colar
     const charCode = event.which ? event.which : event.keyCode;
     const currentValue = event.target.value;
     if (charCode === 8 || charCode === 46 || charCode === 9 || charCode === 27 || charCode === 13 || (charCode >= 35 && charCode <= 40)) { return; }
     if ((charCode === 46 || charCode === 44) && currentValue.indexOf('.') === -1 && currentValue.indexOf(',') === -1) { return; }
     if (charCode < 48 || charCode > 57) { event.preventDefault(); }
 }
-function mostraMensagemErroCampo(campoIdOuElemento, mensagem) {
-    const el = typeof campoIdOuElemento === 'string' ? $(campoIdOuElemento) : campoIdOuElemento;
-    if (el) el.textContent = mensagem;
-    const inputId = (typeof campoIdOuElemento === 'string' ? campoIdOuElemento : campoIdOuElemento.id).replace('Error', '');
-    const inputEl = $(inputId);
+
+function mostraMensagemErroCampo(campoOuId, mensagem) {
+    const el = typeof campoOuId === 'string' ? $(campoOuId) : campoOuId; // Aceita ID ou elemento
+    const inputEl = el.id.includes('Error') ? $(el.id.replace('Error', '')) : el; // Acha o input associado
+
+    if (el.id.includes('Error')) { // Se for uma div de erro
+        el.textContent = mensagem;
+    }
     if (inputEl) inputEl.classList.add('input-error');
 }
-function limpaErroCampo(campoIdOuElemento) {
-    const el = typeof campoIdOuElemento === 'string' ? $(campoIdOuElemento) : campoIdOuElemento;
-    if (el) el.textContent = '';
-    const inputId = (typeof campoIdOuElemento === 'string' ? campoIdOuElemento : campoIdOuElemento.id).replace('Error', '');
-    const inputEl = $(inputId);
+function limpaErroCampo(campoOuId) {
+    const el = typeof campoOuId === 'string' ? $(campoOuId) : campoOuId;
+    const inputEl = el.id.includes('Error') ? $(el.id.replace('Error', '')) : el;
+
+    if (el.id.includes('Error')) {
+        el.textContent = '';
+    }
     if (inputEl) inputEl.classList.remove('input-error');
 }
+
 function limpaMensagensErro() {
-    [codigoProdutoError, pesoTaraKgError, pesoComPoteKgError, pesoExtraKgError].forEach(el => limpaErroCampo(el));
-    [codigoInp, taraInp, pesoComPoteInp, pesoExtraInp].forEach(inp => inp.classList.remove('input-error'));
+    [codigoProdutoError, pesoTaraKgError, pesoComPoteKgError, pesoExtraKgError, inputNomeUsuarioError].forEach(el => {
+        if(el) limpaErroCampo(el);
+    });
+    [codigoInp, taraInp, pesoComPoteInp, pesoExtraInp, inpNome].forEach(inp => {
+        if(inp) inp.classList.remove('input-error');
+    });
 }
 function validaCamposFormulario() {
     limpaMensagensErro();
@@ -268,15 +299,17 @@ function validaCamposFormulario() {
         mostraMensagemErroCampo(codigoProdutoError, 'Código é obrigatório.');
         isValid = false;
     }
-    const taraVal = parseFloat(taraInp.value.replace(',', '.'))
-    if (isNaN(taraVal) && taraInp.value.trim() !== "") {
+    const taraStr = taraInp.value.replace(',', '.').trim();
+    const taraVal = parseFloat(taraStr);
+    if (taraStr !== "" && isNaN(taraVal)) { // Permite tara vazia (será 0)
         mostraMensagemErroCampo(pesoTaraKgError, 'Tara inválida.');
         isValid = false;
     }
-    const pesoComPoteVal = parseFloat(pesoComPoteInp.value.replace(',', '.'));
-    const pesoComPoteStr = pesoComPoteInp.value.trim();
-    const pesoExtraVal = parseFloat(pesoExtraInp.value.replace(',', '.'));
-    const pesoExtraStr = pesoExtraInp.value.trim();
+
+    const pesoComPoteStr = pesoComPoteInp.value.replace(',', '.').trim();
+    const pesoComPoteVal = parseFloat(pesoComPoteStr);
+    const pesoExtraStr = pesoExtraInp.value.replace(',', '.').trim();
+    const pesoExtraVal = parseFloat(pesoExtraStr);
 
     if (pesoComPoteStr === "" && pesoExtraStr === "") {
         mostraMensagemErroCampo(pesoComPoteKgError, 'Peso com pote ou Peso extra é obrigatório.');
@@ -307,6 +340,7 @@ function atualizaDisplayCalculoPeso() {
     calculoPesoLiquidoDisplay.textContent = `Peso Líquido Calculado: ${pesoLiquidoTotal.toFixed(3)} kg`;
 }
 
+
 /* ---------- Registrar ou Salvar Item Localmente ---------- */
 function handleRegistrarOuSalvarItem() {
     if (!validaCamposFormulario()) {
@@ -320,7 +354,7 @@ function handleRegistrarOuSalvarItem() {
     let taraCalculo = taraInput;
     let letraPoteCalculo = letraPoteSel;
 
-    if (pesoComPote === 0 && (pesoComPoteInp.value.trim() === "0" || pesoComPoteInp.value.trim() === "0.000" || pesoComPoteInp.classList.contains('input-auto-filled'))) {
+    if (pesoComPote === 0 && pesoComPoteInp.classList.contains('input-auto-filled')) {
         taraCalculo = 0;
         letraPoteCalculo = 'Nenhuma';
     }
@@ -373,6 +407,7 @@ function limparFormulario() {
 /* ---------- Edição de Itens ---------- */
 function iniciarEdicaoItem(id) {
     const itemParaEditar = itens.find(item => item.id === id); if (!itemParaEditar) return;
+    limpaMensagensErro(); // Limpa erros antes de preencher
     editandoItemId = id;
     codigoInp.value = itemParaEditar.codigo; taraInp.value = itemParaEditar.tara.toFixed(3);
     pesoComPoteInp.value = itemParaEditar.pesoComPote.toFixed(3);
@@ -380,7 +415,8 @@ function iniciarEdicaoItem(id) {
     nomeDiv.textContent = itemParaEditar.nomeProduto;
     desmarcaBotoesTara(); letraPoteSel = itemParaEditar.letraPote;
     const btnLetra = document.querySelector(`.tara-button[data-letra="${letraPoteSel}"]`);
-    if (btnLetra) { btnLetra.classList.add('selected'); } else { letraPoteSel = 'Manual'; }
+    if (btnLetra) { btnLetra.classList.add('selected'); btnLetra.querySelector('i')?.classList.remove('hidden');}
+    else { letraPoteSel = 'Manual'; } // Garante que se não achar botão, seja 'Manual'
     spanLetra.textContent = `(${letraPoteSel})`;
     pesoComPoteInp.classList.remove('input-auto-filled');
     textoBotaoRegistrar.textContent = 'Salvar Alterações';
@@ -392,7 +428,12 @@ function iniciarEdicaoItem(id) {
 
 /* ---------- Renderizar Lista de Pendentes ---------- */
 function renderizaLista() {
-  tbody.innerHTML = ''; totalizadorPendentes.textContent = `Total de Itens: ${itens.length}`;
+  tbody.innerHTML = '';
+  let pesoLiquidoTotalPendente = 0;
+  itens.forEach(item => pesoLiquidoTotalPendente += item.pesoLiquido);
+  totalizadorPendentes.textContent = `Total de Itens: ${itens.length} | P.Líq. Total: ${pesoLiquidoTotalPendente.toFixed(3)} kg`;
+
+
   if (itens.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">Nenhum item local pendente.</td></tr>'; enviarTodosBtn.disabled = true; return; }
   enviarTodosBtn.disabled = enviando;
   [...itens].reverse().forEach((item) => {
@@ -423,7 +464,7 @@ async function enviarTodos() {
     } catch (error) { console.error('Falha ao enviar item:', item.id, error); falhasCount++; const indexOriginal = itens.findIndex(original => original.id === item.id); if (indexOriginal > -1) itens[indexOriginal].statusEnvio = 'falha'; mostraStatus(`Falha item ${item.codigo}: ${error.message}`, 'error', 5000, progresso); await new Promise(resolve => setTimeout(resolve, ENVIO_DELAY_MS * 1.5)); }
     if (i < itensParaEnviarAgora.length - 1) { await new Promise(resolve => setTimeout(resolve, ENVIO_DELAY_MS)); }
   }
-  salvaLocais(); // Salva os status de envio
+  salvaLocais();
   enviando = false; btnLimpar.disabled = false; updateBotaoRegistrar(); textoBotaoEnviar.textContent = 'Enviar Pendentes'; progressBarContainer.style.display = 'none';
   if (falhasCount === 0 && enviadosComSucessoCount > 0) { mostraStatus(`Todos os ${enviadosComSucessoCount} itens foram enviados com sucesso!`, 'success'); } else if (falhasCount > 0 && enviadosComSucessoCount > 0) { mostraStatus(`${enviadosComSucessoCount} itens enviados, ${falhasCount} falharam.`, 'error'); } else if (falhasCount > 0 && enviadosComSucessoCount === 0) { mostraStatus(`Falha ao enviar todos os ${falhasCount} itens.`, 'error'); } else if (enviadosComSucessoCount === 0 && falhasCount === 0 && itensParaEnviarAgora.length > 0) { mostraStatus('Nenhum item processado. Verifique.', 'info'); } else { mostraStatus('Não havia itens para enviar.', 'info'); }
 }
@@ -445,85 +486,3 @@ function mostraStatus(mensagem, tipo = 'info', duracaoMs = 4000, progresso = -1)
   else { progressBarContainer.style.display = 'none'; }
   if (tipo !== 'sending' && duracaoMs > 0) { statusTimeout = setTimeout(() => { statusDiv.style.display = 'none'; statusMensagem.textContent = ''; statusDiv.className = 'status-base'; progressBarContainer.style.display = 'none'; }, duracaoMs); }
 }
-```
-
----
-
-**`sw.js` (Service Worker com Cache Atualizado)**
-
-```javascript
-// Incremente a versão do cache sempre que arquivos importantes (app.js, index.html, potes.json) forem alterados.
-const CACHE_NAME = 'inventario-granel-cache-v8'; // NOVA VERSÃO DO CACHE
-const urlsToCache = [
-  './',
-  './index.html',
-  './app.js',
-  './manifest.json',
-  './potes.json',
-  // CDNs
-  'https://cdn.tailwindcss.com',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'
-];
-
-self.addEventListener('install', event => {
-  console.log('[Service Worker] Instalando...');
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('[Service Worker] Fazendo cache dos arquivos da aplicação');
-        return cache.addAll(urlsToCache);
-      })
-      .then(() => {
-        self.skipWaiting(); // Força o novo SW a se tornar ativo imediatamente
-        console.log('[Service Worker] Instalação completa, skipWaiting chamado.');
-      })
-      .catch(error => {
-        console.error('[Service Worker] Falha na instalação do cache:', error);
-      })
-  );
-});
-
-self.addEventListener('activate', event => {
-  console.log('[Service Worker] Ativando...');
-  event.waitUntil(
-    caches.keys().then(keyList => {
-      return Promise.all(keyList.map(key => {
-        if (key !== CACHE_NAME) {
-          console.log('[Service Worker] Removendo cache antigo:', key);
-          return caches.delete(key);
-        }
-      }));
-    }).then(() => {
-      console.log('[Service Worker] Cache limpo, ativado e pronto para controlar clientes.');
-      return self.clients.claim(); // Permite que o SW ativo controle clientes imediatamente
-    })
-  );
-});
-
-self.addEventListener('fetch', event => {
-  if (event.request.method === 'POST') {
-    event.respondWith(fetch(event.request).catch(error => {
-        console.error('[Service Worker] Erro no fetch POST:', error);
-        return new Response(JSON.stringify({ result: 'error', message: 'Falha na conexão de rede.' }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
-    }));
-    return;
-  }
-
-  event.respondWith(
-    caches.match(event.request)
-      .then(cachedResponse => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        return fetch(event.request).then(
-          networkResponse => {
-            return networkResponse;
-          }
-        ).catch(error => {
-          console.error('[Service Worker] Erro ao buscar na rede:', event.request.url, error);
-        });
-      })
-  );
-});
