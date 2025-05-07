@@ -1,5 +1,5 @@
 // Incremente a versão do cache sempre que arquivos importantes (app.js, index.html, potes.json) forem alterados.
-const CACHE_NAME = 'inventario-granel-cache-v7'; // NOVA VERSÃO DO CACHE
+const CACHE_NAME = 'inventario-granel-cache-v9'; // NOVA VERSÃO DO CACHE
 const urlsToCache = [
   './',
   './index.html',
