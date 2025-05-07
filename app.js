@@ -1,14 +1,13 @@
 /* ========= CONFIG ========= */
 const GOOGLE_SCRIPT_URL =
   'https://script.google.com/macros/s/AKfycbwy_aKGV9xAd9sBJRGG66LohrR3s0l_DbDCnOveCEHaE_RGjNqgTHbkiBX8ngks3-nO/exec'; // Mantido o último URL funcional
-const APP_VERSION = '29-abr-2025 - Melhorias UI/UX e Funcionais';
+const APP_VERSION = '29-abr-2025 - Fix: Habilitar Btn com Peso Extra'; // Versão Atualizada
 const ENVIO_DELAY_MS = 500;
 
 /* ========= VARS ========= */
-const ITENS_KEY = 'inv_granel_itens_v4'; // Nova chave para refletir edições
+const ITENS_KEY = 'inv_granel_itens_v3';
 const NOME_USUARIO_KEY = 'inventarioGranelUsuario';
 let nomeUsuario = '', enviando = false, letraPoteSel = 'Nenhuma', itens = [], MAPA = {};
-let editandoItemId = null; // Para controlar se estamos editando um item
 
 /* refs DOM */
 const $ = id => document.getElementById(id);
@@ -16,26 +15,26 @@ const codigoInp=$('codigoProduto'), nomeDiv=$('nomeProdutoDisplay'),
       taraInp=$('pesoTaraKg'),
       pesoComPoteInp=$('pesoComPoteKg'),
       pesoExtraInp=$('pesoExtraKg'),
-      btnReg=$('registrarItemBtn'), textoBotaoRegistrar=$('textoBotaoRegistrar'),
+      btnReg=$('registrarItemBtn'), textoBotaoRegistrar=$('textoBotaoRegistrar'), // Adicionado para texto do botão
       tbody=$('listaItensBody'),
       letras=$('botoesTaraContainer'),
-      statusDiv=$('statusEnvio'), statusMensagem=$('statusMensagem'),
-      progressBarContainer=$('progressBarContainer'), progressBar=$('progressBar'),
+      statusDiv=$('statusEnvio'), statusMensagem=$('statusMensagem'), // Adicionado para mensagem de status
+      progressBarContainer=$('progressBarContainer'), progressBar=$('progressBar'), // Adicionado para barra de progresso
       nomeDisp=$('nomeUsuarioDisplay'), modal=$('modalNomeUsuario'),
       overlay=$('overlayNomeUsuario'), inpNome=$('inputNomeUsuario'),
       spanLetra=$('letraPoteSelecionado'), enviarTodosBtn=$('enviarTodosBtn'),
-      textoBotaoEnviar=$('textoBotaoEnviar'),
-      contadorPendentes=$('contadorPendentes'), totalizadorPendentes=$('totalizadorPendentes'),
+      textoBotaoEnviar=$('textoBotaoEnviar'), // Adicionado para texto do botão enviar
+      contadorPendentes=$('contadorPendentes'), totalizadorPendentes=$('totalizadorPendentes'), // Adicionado para totalizador
       btnLimpar=$('limparSessaoLocalBtn'),
       btnAlterarNome=$('alterarNomeBtn'), salvaNmBtn=$('salvarNomeUsuarioBtn'),
-      closeModalNomeBtn=$('closeModalNomeBtn'),
-      calculoPesoLiquidoDisplay=$('calculoPesoLiquidoDisplay');
+      closeModalNomeBtn=$('closeModalNomeBtn'); // Adicionado para botão X do modal
 
 // Referências para mensagens de erro dos campos
 const codigoProdutoError = $('codigoProdutoError');
 const pesoTaraKgError = $('pesoTaraKgError');
 const pesoComPoteKgError = $('pesoComPoteKgError');
 const pesoExtraKgError = $('pesoExtraKgError');
+const calculoPesoLiquidoDisplay=$('calculoPesoLiquidoDisplay'); // Adicionado para display de cálculo
 
 
 /* ---------- INIT ---------- */
@@ -48,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   verificaNomeUsuario();
   updateBotaoRegistrar();
   selecionaBotaoNenhuma();
-  limpaMensagensErro(); // Limpa erros ao carregar
+  limpaMensagensErro();
 });
 
 /* ---------- Setup Eventos ---------- */
@@ -59,7 +58,7 @@ function setupEventListeners() {
   nomeDisp.addEventListener('click', abrirModalNome);
   btnAlterarNome.addEventListener('click', abrirModalNome);
   closeModalNomeBtn.addEventListener('click', fecharModalNome);
-  overlay.addEventListener('click', fecharModalNome); // Fechar ao clicar no overlay
+  overlay.addEventListener('click', fecharModalNome);
 
   // Navegação Enter/Go
   const goKeys = ['Enter','Go','Next','Done','Send'];
@@ -71,17 +70,19 @@ function setupEventListeners() {
   // Inputs e validação
   [codigoInp, taraInp, pesoComPoteInp, pesoExtraInp].forEach(inp => {
     inp.addEventListener('input', () => {
-      limpaErroCampo(inp.id + 'Error'); // Limpa erro específico ao digitar
+      limpaErroCampo(inp.id + 'Error');
       if (inp === pesoComPoteInp || inp === taraInp || inp === pesoExtraInp) {
         atualizaDisplayCalculoPeso();
       }
+      // Adicionado pesoExtraInp para também atualizar o botão registrar
+      if (inp === codigoInp || inp === pesoComPoteInp || inp === pesoExtraInp) {
+        updateBotaoRegistrar();
+      }
     });
-    // Validação de entrada para campos numéricos
     if (inp.type === 'number') {
         inp.addEventListener('keypress', permiteApenasNumerosSeparador);
     }
   });
-
 
   // Input Código Produto (Blur) -> Busca Tara Automática
   codigoInp.addEventListener('blur', buscaTaraAutomatica);
@@ -104,9 +105,6 @@ function setupEventListeners() {
 
   // Botão Limpar Locais
   btnLimpar.addEventListener('click', limparItensLocais);
-
-  // Habilita/Desabilita botão Registrar ao digitar
-  [codigoInp, pesoComPoteInp].forEach(el => el.addEventListener('input', updateBotaoRegistrar));
 }
 
 /* ---------- Nome Usuário ---------- */
@@ -123,7 +121,7 @@ function fecharModalNome() {
 }
 function salvaNome() {
   const n = inpNome.value.trim(); if (!n) { mostraMensagemErroCampo(inpNome, 'Por favor, digite seu nome.'); return; }
-  limpaErroCampo(inpNome); // Limpa erro se houver
+  limpaErroCampo(inpNome);
   nomeUsuario = n; localStorage.setItem(NOME_USUARIO_KEY, n); mostrarNome(); fecharModalNome(); updateBotaoRegistrar();
 }
 function mostrarNome() {
@@ -148,28 +146,29 @@ function handleTaraRapidaClick(event) {
     desmarcaBotoesTara();
     btn.classList.add('selected');
     taraInp.value = parseFloat(btn.dataset.taraKg).toFixed(3);
-    limpaErroCampo(pesoTaraKgError); // Limpa erro se houver
+    limpaErroCampo(pesoTaraKgError);
     letraPoteSel = btn.dataset.letra;
     spanLetra.textContent = `(${letraPoteSel})`;
 
     if (letraPoteSel === 'Nenhuma') {
-        pesoComPoteInp.value = '0.000'; // Define Peso COM POTE como 0
-        pesoComPoteInp.classList.add('input-auto-filled'); // Estilo para indicar auto-preenchimento
+        pesoComPoteInp.value = '0.000';
+        pesoComPoteInp.classList.add('input-auto-filled');
         limpaErroCampo(pesoComPoteKgError);
         pesoExtraInp.focus();
         pesoExtraInp.select();
-        updateBotaoRegistrar();
+        // updateBotaoRegistrar(); // Já é chamado pelo input event do pesoComPoteInp
     } else {
         pesoComPoteInp.classList.remove('input-auto-filled');
         pesoComPoteInp.focus();
         pesoComPoteInp.select();
     }
     atualizaDisplayCalculoPeso();
+    updateBotaoRegistrar(); // Garante atualização do botão após qualquer clique de tara
 }
 
 function handleTaraManualInput() {
     desmarcaBotoesTara(); letraPoteSel = 'Manual'; spanLetra.textContent = '(Manual)';
-    pesoComPoteInp.classList.remove('input-auto-filled'); // Remove estilo se tara for manual
+    pesoComPoteInp.classList.remove('input-auto-filled');
     if (!taraInp.value.trim()) { selecionaBotaoNenhuma(); }
     atualizaDisplayCalculoPeso();
 }
@@ -184,7 +183,7 @@ function selecionaBotaoNenhuma() {
 /* ---------- Busca Tara Automática ---------- */
 function buscaTaraAutomatica() {
   const codigo = codigoInp.value.trim();
-  limpaErroCampo(codigoProdutoError); // Limpa erro do código ao sair do campo
+  limpaErroCampo(codigoProdutoError);
   const produto = MAPA[codigo];
   if (produto) {
     nomeDiv.textContent = produto.Nome || 'Produto sem nome';
@@ -198,17 +197,36 @@ function buscaTaraAutomatica() {
         } else { selecionaBotaoNenhuma(); }
     }
   } else {
-    if(codigo) nomeDiv.textContent = 'Produto não cadastrado'; // Feedback se código não encontrado
+    if(codigo) nomeDiv.textContent = 'Produto não cadastrado';
     else nomeDiv.textContent = '';
   }
   updateBotaoRegistrar();
   atualizaDisplayCalculoPeso();
 }
 
-/* ---------- Estado Botão Registrar/Salvar ---------- */
+/* ---------- Estado Botão Registrar/Salvar (MODIFICADO) ---------- */
 function updateBotaoRegistrar() {
-  const podeRegistrar = nomeUsuario && codigoInp.value.trim() && pesoComPoteInp.value.trim();
-  btnReg.disabled = !podeRegistrar;
+  const nomeOk = !!nomeUsuario;
+  const codigoOk = codigoInp.value.trim() !== '';
+
+  const pesoComPoteValor = pesoComPoteInp.value.trim();
+  const pesoExtraValor = pesoExtraInp.value.trim();
+
+  // Condição de peso:
+  // 1. Se pesoComPote tiver um valor (incluindo "0" ou "0.000"), está OK.
+  // 2. Se pesoComPote estiver vazio, então pesoExtra DEVE ter um valor.
+  const pesoOk = (pesoComPoteValor !== '') || (pesoComPoteValor === '' && pesoExtraValor !== '');
+
+  console.log('updateBotaoRegistrar:', {
+    nomeOk, usuario: nomeUsuario,
+    codigoOk, codigo: codigoInp.value.trim(),
+    pesoComPote: pesoComPoteValor,
+    pesoExtra: pesoExtraValor,
+    pesoOk,
+    editando: editandoItemId
+  });
+
+  btnReg.disabled = !(nomeOk && codigoOk && pesoOk);
   textoBotaoRegistrar.textContent = editandoItemId !== null ? 'Salvar Alterações' : 'Registrar Item Localmente';
 }
 
@@ -221,24 +239,13 @@ function limparItensLocais() { if (enviando) { alert("Aguarde o término do envi
 function permiteApenasNumerosSeparador(event) {
     const charCode = event.which ? event.which : event.keyCode;
     const currentValue = event.target.value;
-    // Permite backspace, delete, tab, escape, enter, setas
-    if (charCode === 8 || charCode === 46 || charCode === 9 || charCode === 27 || charCode === 13 || (charCode >= 35 && charCode <= 40)) {
-        return;
-    }
-    // Permite . ou , como separador decimal (apenas um)
-    if ((charCode === 46 || charCode === 44) && currentValue.indexOf('.') === -1 && currentValue.indexOf(',') === -1) {
-        return;
-    }
-    // Permite apenas números
-    if (charCode < 48 || charCode > 57) {
-        event.preventDefault();
-    }
+    if (charCode === 8 || charCode === 46 || charCode === 9 || charCode === 27 || charCode === 13 || (charCode >= 35 && charCode <= 40)) { return; }
+    if ((charCode === 46 || charCode === 44) && currentValue.indexOf('.') === -1 && currentValue.indexOf(',') === -1) { return; }
+    if (charCode < 48 || charCode > 57) { event.preventDefault(); }
 }
 function mostraMensagemErroCampo(campoIdOuElemento, mensagem) {
     const el = typeof campoIdOuElemento === 'string' ? $(campoIdOuElemento) : campoIdOuElemento;
     if (el) el.textContent = mensagem;
-
-    // Adiciona classe de erro ao input correspondente se o ID do erro for ex: 'nomeInputError'
     const inputId = (typeof campoIdOuElemento === 'string' ? campoIdOuElemento : campoIdOuElemento.id).replace('Error', '');
     const inputEl = $(inputId);
     if (inputEl) inputEl.classList.add('input-error');
@@ -252,6 +259,8 @@ function limpaErroCampo(campoIdOuElemento) {
 }
 function limpaMensagensErro() {
     [codigoProdutoError, pesoTaraKgError, pesoComPoteKgError, pesoExtraKgError].forEach(el => limpaErroCampo(el));
+    // Limpa também a classe de erro dos inputs diretamente
+    [codigoInp, taraInp, pesoComPoteInp, pesoExtraInp].forEach(inp => inp.classList.remove('input-error'));
 }
 function validaCamposFormulario() {
     limpaMensagensErro();
@@ -261,17 +270,25 @@ function validaCamposFormulario() {
         isValid = false;
     }
     const taraVal = parseFloat(taraInp.value.replace(',', '.'))
-    if (isNaN(taraVal) && taraInp.value.trim() !== "") { // Permite tara vazia (será 0)
+    if (isNaN(taraVal) && taraInp.value.trim() !== "") {
         mostraMensagemErroCampo(pesoTaraKgError, 'Tara inválida.');
         isValid = false;
     }
     const pesoComPoteVal = parseFloat(pesoComPoteInp.value.replace(',', '.'));
-    if (isNaN(pesoComPoteVal) || pesoComPoteInp.value.trim() === "") {
-        mostraMensagemErroCampo(pesoComPoteKgError, 'Peso com pote é obrigatório.');
+    const pesoComPoteStr = pesoComPoteInp.value.trim();
+    // Peso com pote é obrigatório A MENOS QUE peso extra seja preenchido
+    const pesoExtraVal = parseFloat(pesoExtraInp.value.replace(',', '.'));
+    const pesoExtraStr = pesoExtraInp.value.trim();
+
+    if (pesoComPoteStr === "" && pesoExtraStr === "") {
+        mostraMensagemErroCampo(pesoComPoteKgError, 'Peso com pote ou Peso extra é obrigatório.');
+        isValid = false;
+    } else if (pesoComPoteStr !== "" && isNaN(pesoComPoteVal)) {
+        mostraMensagemErroCampo(pesoComPoteKgError, 'Peso com pote inválido.');
         isValid = false;
     }
-    const pesoExtraVal = parseFloat(pesoExtraInp.value.replace(',', '.'));
-     if (isNaN(pesoExtraVal) && pesoExtraInp.value.trim() !== "") { // Permite extra vazio (será 0)
+
+     if (pesoExtraStr !== "" && isNaN(pesoExtraVal)) {
         mostraMensagemErroCampo(pesoExtraKgError, 'Peso extra inválido.');
         isValid = false;
     }
@@ -284,7 +301,7 @@ function atualizaDisplayCalculoPeso() {
     const pesoComPote = parseFloat(pesoComPoteInp.value.replace(',', '.')) || 0;
     const pesoExtra = parseFloat(pesoExtraInp.value.replace(',', '.')) || 0;
 
-    if (pesoComPoteInp.value.trim() === "") {
+    if (pesoComPoteInp.value.trim() === "" && pesoExtraInp.value.trim() === "") {
         calculoPesoLiquidoDisplay.textContent = "";
         return;
     }
@@ -305,27 +322,36 @@ function handleRegistrarOuSalvarItem() {
 
     const codigo = codigoInp.value.trim();
     let taraInput = parseFloat(taraInp.value.replace(',', '.')) || 0;
+    // Se pesoComPoteInp estiver vazio, parseFloat('') dá NaN, então || 0 garante que seja 0.
     const pesoComPote = parseFloat(pesoComPoteInp.value.replace(',', '.')) || 0;
     const pesoExtra = parseFloat(pesoExtraInp.value.replace(',', '.')) || 0;
 
     let taraCalculo = taraInput;
     let letraPoteCalculo = letraPoteSel;
 
-    if (pesoComPote === 0 && pesoComPoteInp.classList.contains('input-auto-filled')) { // Verifica se foi auto-preenchido com 0
-        taraCalculo = 0;
-        letraPoteCalculo = 'Nenhuma';
+    // Se o campo pesoComPote foi deixado VAZIO (ou era 0 e Nenhuma foi clicado),
+    // e há peso extra, a tara deve ser 0.
+    if (pesoComPote === 0 && pesoExtra > 0) {
+        if(pesoComPoteInp.value.trim() === "" || pesoComPoteInp.classList.contains('input-auto-filled')){
+            console.log("Peso com pote vazio/auto-zerado e peso extra existe. Forçando tara 0 e letra Nenhuma.");
+            taraCalculo = 0;
+            letraPoteCalculo = 'Nenhuma';
+        }
     }
+
 
     const pesoLiquidoPote = pesoComPote - taraCalculo;
     const pesoLiquidoTotal = +(pesoLiquidoPote + pesoExtra).toFixed(3);
 
-    if (pesoLiquidoTotal <= 0 && pesoExtra <= 0 && pesoComPote > 0) {
-        mostraMensagemErroCampo(pesoComPoteKgError, 'Peso Líquido Total zerado ou negativo.');
-        return;
-    } else if (pesoLiquidoTotal <= 0 && pesoExtra <= 0 && pesoComPote === 0 && codigoInp.value.trim()) {
-        mostraMensagemErroCampo(pesoExtraKgError, 'Nenhum peso registrado (pote ou extra).');
-        return;
+    if (pesoLiquidoTotal <= 0 && !(pesoComPote === 0 && pesoExtra > 0 && taraCalculo === 0)) {
+         // Permite registro se o peso líquido total for > 0
+         // OU se for o caso específico de pote vazio (pesoComPote=0, taraCalculo=0) e SÓ pesoExtra > 0
+        if (!(pesoComPote === 0 && pesoExtra > 0 && taraCalculo === 0 && pesoLiquidoTotal === pesoExtra)) {
+            mostraMensagemErroCampo(calculoPesoLiquidoDisplay, 'Peso Líquido Total zerado ou negativo.');
+            return;
+        }
     }
+
 
     const produtoInfo = MAPA[codigo] || {};
     const itemData = {
@@ -333,19 +359,17 @@ function handleRegistrarOuSalvarItem() {
         codigo: codigo, nomeProduto: produtoInfo.Nome || 'PRODUTO NÃO CADASTRADO',
         pesoLiquido: pesoLiquidoTotal, tara: taraCalculo, pesoComPote: pesoComPote,
         pesoExtra: pesoExtra, letraPote: letraPoteCalculo,
-        statusEnvio: null // null, 'sucesso', 'falha'
+        statusEnvio: null
     };
 
     if (editandoItemId !== null) {
-        // Salvar alterações
         const index = itens.findIndex(item => item.id === editandoItemId);
         if (index > -1) {
-            itens[index] = { ...itens[index], ...itemData, id: editandoItemId }; // Mantém o ID original
+            itens[index] = { ...itens[index], ...itemData, id: editandoItemId };
             mostraStatus('Item atualizado localmente!', 'success');
         }
-        editandoItemId = null; // Reseta modo de edição
+        editandoItemId = null;
     } else {
-        // Registrar novo item
         itemData.id = Date.now();
         itens.push(itemData);
         mostraStatus('Item registrado localmente!', 'success');
@@ -363,7 +387,7 @@ function limparFormulario() {
     calculoPesoLiquidoDisplay.textContent = "";
     pesoComPoteInp.classList.remove('input-auto-filled');
     selecionaBotaoNenhuma();
-    editandoItemId = null; // Garante que saiu do modo edição
+    editandoItemId = null;
     textoBotaoRegistrar.textContent = 'Registrar Item Localmente';
     btnReg.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
     btnReg.classList.add('bg-green-600', 'hover:bg-green-700');
@@ -381,16 +405,15 @@ function iniciarEdicaoItem(id) {
     taraInp.value = itemParaEditar.tara.toFixed(3);
     pesoComPoteInp.value = itemParaEditar.pesoComPote.toFixed(3);
     pesoExtraInp.value = itemParaEditar.pesoExtra.toFixed(3);
-    nomeDiv.textContent = itemParaEditar.nomeProduto; // Atualiza nome do produto
+    nomeDiv.textContent = itemParaEditar.nomeProduto;
 
-    // Seleciona botão de tara correto
     desmarcaBotoesTara();
     letraPoteSel = itemParaEditar.letraPote;
-    const btnLetra = document.querySelector(`.tara-button[data-letra="${letraPoteSel}"]`);
+    const btnLetra = document.querySelector(`.tara-button[data-letra="${letraPoteSel}"]`); // Inclui o fixo "Nenhuma"
     if (btnLetra) {
         btnLetra.classList.add('selected');
-    } else { // Se for 'Manual' ou letra não encontrada
-        letraPoteSel = 'Manual'; // Garante que seja 'Manual' se não houver botão
+    } else {
+        letraPoteSel = 'Manual';
     }
     spanLetra.textContent = `(${letraPoteSel})`;
     pesoComPoteInp.classList.remove('input-auto-filled');
@@ -398,11 +421,11 @@ function iniciarEdicaoItem(id) {
 
     textoBotaoRegistrar.textContent = 'Salvar Alterações';
     btnReg.classList.remove('bg-green-600', 'hover:bg-green-700');
-    btnReg.classList.add('bg-yellow-500', 'hover:bg-yellow-600'); // Cor diferente para salvar
-    updateBotaoRegistrar(); // Habilita o botão
+    btnReg.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+    updateBotaoRegistrar();
     codigoInp.focus();
     atualizaDisplayCalculoPeso();
-    window.scrollTo({ top: 0, behavior: 'smooth' }); // Rola para o topo
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 
@@ -421,9 +444,8 @@ function renderizaLista() {
 
   [...itens].reverse().forEach((item) => {
     const tr = document.createElement('tr');
-    if (item.statusEnvio === 'falha') tr.classList.add('bg-red-100'); // Destaca falhas
+    if (item.statusEnvio === 'falha') tr.classList.add('bg-red-100');
 
-    // Formata para mostrar apenas a hora
     const horaFormatada = new Date(item.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
     tr.innerHTML = `
@@ -445,7 +467,6 @@ function renderizaLista() {
     tr.querySelector(`button[data-delete-id="${item.id}"]`).addEventListener('click', (e) => {
         const row = e.target.closest('tr');
         if (row) row.classList.add('fade-out');
-        // Pequeno delay para a animação antes de realmente excluir
         setTimeout(() => excluirItem(item.id), 280);
     });
     tbody.appendChild(tr);
@@ -456,10 +477,8 @@ function excluirItem(id) {
     if (enviando) { alert("Aguarde o término do envio atual."); return; }
     const itemIndex = itens.findIndex(i => i.id === id);
     if (itemIndex > -1) {
-        // Não precisa de confirm() aqui se a animação já deu um feedback
         itens.splice(itemIndex, 1);
-        salvaLocais(); // Isso vai re-renderizar a lista
-        // mostraStatus('Item excluído localmente.', 'info'); // Opcional, a remoção visual já é um feedback
+        salvaLocais();
     }
 }
 
@@ -468,13 +487,12 @@ function excluirItem(id) {
 async function enviarTodos() {
   if (enviando || itens.length === 0) return;
 
-  const itensParaEnviarAgora = itens.filter(item => item.statusEnvio !== 'sucesso'); // Envia apenas os não enviados ou com falha
+  const itensParaEnviarAgora = itens.filter(item => item.statusEnvio !== 'sucesso');
 
   if (itensParaEnviarAgora.length === 0) {
       mostraStatus('Nenhum item pendente ou com falha para enviar.', 'info');
       return;
   }
-
 
   enviando = true;
   enviarTodosBtn.disabled = true;
@@ -497,7 +515,6 @@ async function enviarTodos() {
       const resultadoEnvio = await enviarItem(item);
        if (resultadoEnvio && resultadoEnvio.result === 'success' && resultadoEnvio.idLocal == item.id) {
            enviadosComSucessoCount++;
-           // Marca como sucesso no array original 'itens'
            const indexOriginal = itens.findIndex(original => original.id === item.id);
            if (indexOriginal > -1) itens[indexOriginal].statusEnvio = 'sucesso';
        } else {
@@ -508,22 +525,21 @@ async function enviarTodos() {
       falhasCount++;
       const indexOriginal = itens.findIndex(original => original.id === item.id);
       if (indexOriginal > -1) itens[indexOriginal].statusEnvio = 'falha';
-      mostraStatus(`Falha item ${item.codigo}: ${error.message}`, 'error', 5000, progresso); // Mostra erro específico
-      await new Promise(resolve => setTimeout(resolve, ENVIO_DELAY_MS * 1.5)); // Pausa maior em erro
+      mostraStatus(`Falha item ${item.codigo}: ${error.message}`, 'error', 5000, progresso);
+      await new Promise(resolve => setTimeout(resolve, ENVIO_DELAY_MS * 1.5));
     }
     if (i < itensParaEnviarAgora.length - 1) {
       await new Promise(resolve => setTimeout(resolve, ENVIO_DELAY_MS));
     }
   }
 
-  salvaLocais(); // Salva os status de envio atualizados
+  salvaLocais();
 
   enviando = false;
   btnLimpar.disabled = false;
   updateBotaoRegistrar();
   textoBotaoEnviar.textContent = 'Enviar Pendentes';
   progressBarContainer.style.display = 'none';
-
 
   if (falhasCount === 0 && enviadosComSucessoCount > 0) {
     mostraStatus(`Todos os ${enviadosComSucessoCount} itens foram enviados com sucesso!`, 'success');
@@ -561,7 +577,7 @@ async function enviarItem(item) {
 let statusTimeout;
 function mostraStatus(mensagem, tipo = 'info', duracaoMs = 4000, progresso = -1) {
   clearTimeout(statusTimeout);
-  statusMensagem.textContent = mensagem;
+  statusMensagem.textContent = mensagem; // Usa o span para a mensagem
   statusDiv.className = `status-base status-${tipo}`;
   statusDiv.style.display = 'block';
 
@@ -578,3 +594,130 @@ function mostraStatus(mensagem, tipo = 'info', duracaoMs = 4000, progresso = -1)
     }, duracaoMs);
   }
 }
+```
+
+---
+
+**Google Apps Script (`Código.gs`)**
+*(Este é o código que você já tem e está funcionando, com o nome da aba "Página1". Nenhuma alteração necessária aqui se ele já recebe e salva os dados corretamente, incluindo `pesoExtra` se você o adicionou lá.)*
+
+```javascript
+/**
+ * APP INVENTÁRIO – Script Finalizado com Colunas Ajustadas
+ * (28-abr-2025)
+ */
+
+/* ===== CONFIGURAÇÃO ===== */
+// Nome exato da aba da sua planilha onde os dados serão salvos
+const SHEET_NAME = "Página1";
+
+/**
+ * Função principal que recebe os dados via POST do PWA.
+ * @param {Object} e O objeto de evento do POST, contendo os parâmetros.
+ * @return {ContentService.TextOutput} Resposta JSON indicando sucesso ou erro.
+ */
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000); // Espera até 30 segundos para obter o bloqueio
+
+  var ss = null;
+  var sheet = null;
+  var idLocal = e.parameter.idLocal || null; // Pega ID local para resposta
+
+  try {
+    // Acessa a planilha e a aba
+    try {
+      ss = SpreadsheetApp.getActiveSpreadsheet();
+      sheet = ss.getSheetByName(SHEET_NAME);
+      if (!sheet) {
+        throw new Error("Planilha/Aba com o nome '" + SHEET_NAME + "' não encontrada.");
+      }
+    } catch (ssError) {
+       Logger.log('Erro ao acessar Planilha/Aba: ' + ssError);
+       throw new Error('Erro interno do servidor ao acessar a planilha de destino.');
+    }
+
+    // Validação básica dos parâmetros recebidos
+    if (!e || !e.parameter || !e.parameter.codigo || e.parameter.pesoLiquido === undefined || e.parameter.usuario === undefined || e.parameter.pesoComPote === undefined ) {
+        Logger.log('Erro: Parâmetros obrigatórios ausentes. Recebido: ' + JSON.stringify(e.parameter));
+        throw new Error('Dados incompletos recebidos do aplicativo.');
+    }
+
+    // Extrai e formata os parâmetros
+    var codigo = e.parameter.codigo || '';
+    var nomeProduto = e.parameter.nomeProduto || 'N/D';
+    var pesoLiquidoTotal = parseAndFormatFloat(e.parameter.pesoLiquido);
+    var pesoComPote = parseAndFormatFloat(e.parameter.pesoComPote);
+    var pesoExtra = parseAndFormatFloat(e.parameter.pesoExtra); // Recebe o peso extra
+    var tara = parseAndFormatFloat(e.parameter.tara);
+    var letraPote = e.parameter.letraPote || 'N/D';
+    var usuario = e.parameter.usuario || 'Desconhecido';
+    var timestamp = e.parameter.timestamp ? new Date(e.parameter.timestamp) : new Date();
+
+    // Define a ordem dos dados para a linha da planilha
+    // Certifique-se que esta ordem corresponde às colunas na sua Planilha Google
+    var rowData = [
+      codigo,             // A: CodigoProduto
+      nomeProduto,        // B: NomeProduto
+      pesoLiquidoTotal,   // C: PesoLiquido_kg_Total
+      pesoComPote,        // D: Peso_com_pote
+      pesoExtra,          // E: Peso_Estoque_Extra
+      tara,               // F: Tara_kg
+      letraPote,          // G: LetraPote
+      usuario,            // H: Usuario
+      timestamp           // I: Timestamp
+    ];
+
+    // Adiciona a nova linha
+    try {
+        sheet.appendRow(rowData);
+        Logger.log('Linha adicionada com sucesso para idLocal ' + idLocal + ': ' + JSON.stringify(rowData));
+    } catch (appendError){
+        Logger.log('Erro ao adicionar linha para idLocal ' + idLocal + ': ' + appendError);
+        throw new Error('Erro interno do servidor ao salvar os dados na planilha.');
+    }
+
+    var responseJson = JSON.stringify({
+      result: 'success',
+      message: 'Dados recebidos e salvos com sucesso!',
+      idLocal: idLocal
+    });
+    return ContentService.createTextOutput(responseJson)
+                         .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log("Erro em doPost para idLocal " + idLocal + ": " + error.toString() + (error.stack ? "\nStack: " + error.stack : ""));
+    Logger.log("Parâmetros recebidos: " + JSON.stringify(e.parameter));
+
+    var errorResponseJson = JSON.stringify({
+      result: 'error',
+      message: 'Erro no servidor: ' + error.message,
+      idLocal: idLocal
+    });
+    return ContentService.createTextOutput(errorResponseJson)
+                         .setMimeType(ContentService.MimeType.JSON);
+
+  } finally {
+    lock.releaseLock();
+    Logger.log('Bloqueio liberado para idLocal ' + idLocal);
+  }
+}
+
+function parseAndFormatFloat(valueString) {
+  if (valueString === null || valueString === undefined) {
+    return 0;
+  }
+  var trimmedString = String(valueString).trim();
+  if (trimmedString === "") {
+    return 0;
+  }
+  var value = parseFloat(trimmedString.replace(',', '.'));
+  return isNaN(value) ? 0 : value;
+}
+
+function doGet(e) {
+  return ContentService.createTextOutput("Script do Inventário Granel está ativo e pronto para receber dados via POST.");
+}
+```
+
+Espero que agora tudo funcione perfeitamen
