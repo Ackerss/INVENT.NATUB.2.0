@@ -21,7 +21,11 @@
     .flash-error{animation:flash-error .7s}
 
     #listaItensTable{width:100%;table-layout:auto;font-size:.9rem} /* table-layout: auto para melhor ajuste */
-    #listaItensTable th,#listaItensTable td{padding:4px 2px; border:1px solid #e5e7eb; word-wrap: break-word;}
+    #listaItensTable th,#listaItensTable td{padding:4px 2px; border:1px solid #e5e7eb; word-wrap: break-word; text-align: center;}
+    #listaItensTable th:first-child, #listaItensTable td:first-child { text-align: left; padding-left: 4px;} /* Código à esquerda */
+    #listaItensTable td:nth-child(2), #listaItensTable td:nth-child(3) { text-align: right; padding-right: 4px;} /* Pesos à direita */
+
+
     @media (min-width: 640px) { /* sm: */
       #listaItensTable th,#listaItensTable td{padding:6px 4px;}
     }
@@ -45,7 +49,7 @@
     .modal-close-button:hover { color: #ef4444; }
 
     /* Estilo para campo preenchido automaticamente */
-    .input-auto-filled { background-color: #f0f9ff; /* Azul bem claro */ border-color: #93c5fd; /* Borda azul clara */}
+    .input-auto-filled { background-color: #eff6ff; /* Azul bem claro Tailwind blue-50 */ border-color: #93c5fd; /* Borda azul clara Tailwind blue-300 */}
 
     /* Barra de Progresso */
     #progressBarContainer { width: 100%; background-color: #e5e7eb; border-radius: 0.25rem; overflow: hidden; margin-top: 0.5rem; height: 10px; display: none;}
@@ -53,11 +57,11 @@
 
     /* Agrupamento Visual */
     .form-group { border: 1px solid #e5e7eb; padding: 1rem; border-radius: 0.375rem; margin-bottom: 1rem; }
-    .form-group-title { font-weight: 600; color: #4b5563; margin-bottom: 0.75rem; display: block;}
+    .form-group-title { font-weight: 600; color: #4b5563; margin-bottom: 0.75rem; display: block; font-size: 1.1rem;}
 
     /* Validação de Campo */
     .input-error { border-color: #ef4444 !important; /* Vermelho para erro */ }
-    .error-message { color: #ef4444; font-size: 0.75rem; margin-top: 0.25rem; }
+    .error-message { color: #ef4444; font-size: 0.75rem; margin-top: 0.25rem; display: block; min-height: 1rem; /* Para evitar que o layout pule */}
 
     /* Animação Fade Out para exclusão */
     @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; transform: scale(0.95); } }
@@ -76,6 +80,7 @@
     <p class="text-sm text-gray-600 mb-4">Digite seu nome para identificar os registros:</p>
     <input type="text" id="inputNomeUsuario" placeholder="Seu nome"
            class="w-full border border-gray-300 p-2 rounded mb-4" enterkeyhint="done">
+    <div id="inputNomeUsuarioError" class="error-message mb-2"></div>
     <button id="salvarNomeUsuarioBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded">
       Salvar Nome
     </button>
@@ -105,7 +110,7 @@
           <label for="pesoTaraKg" class="block text-sm font-medium text-gray-700">
             Peso da Tara (kg) <span id="letraPoteSelecionado" class="text-blue-600 font-semibold">(Nenhuma)</span>
           </label>
-          <input type="number" step="0.001" inputmode="decimal" id="pesoTaraKg" placeholder="0.000"
+          <input type="text" inputmode="decimal" id="pesoTaraKg" placeholder="0.000"
                  class="mt-1 block w-full border border-gray-300 p-2 rounded" enterkeyhint="next">
            <div id="pesoTaraKgError" class="error-message"></div>
         </div>
@@ -125,13 +130,13 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
               <label for="pesoComPoteKg" class="block text-sm font-medium text-gray-700">Peso COM POTE (kg)</label>
-              <input type="number" step="0.001" inputmode="decimal" id="pesoComPoteKg" placeholder="0.000"
+              <input type="text" inputmode="decimal" id="pesoComPoteKg" placeholder="0.000"
                      class="mt-1 block w-full border border-gray-300 p-2 rounded" enterkeyhint="next">
               <div id="pesoComPoteKgError" class="error-message"></div>
           </div>
            <div>
               <label for="pesoExtraKg" class="block text-sm font-medium text-gray-700">Peso Extra Estoque (kg)</label>
-              <input type="number" step="0.001" inputmode="decimal" id="pesoExtraKg" placeholder="0.000"
+              <input type="text" inputmode="decimal" id="pesoExtraKg" placeholder="0.000"
                      class="mt-1 block w-full border border-gray-300 p-2 rounded" enterkeyhint="go">
               <p class="mt-1 text-xs text-gray-500">Opcional: Peso de pacotes fechados, etc.</p>
               <div id="pesoExtraKgError" class="error-message"></div>
@@ -164,11 +169,10 @@
         <table id="listaItensTable" class="min-w-full border-collapse border border-gray-300">
           <thead>
             <tr class="bg-gray-200 text-left">
-              <th class="w-1/5 sm:w-1/6">Código</th>
-              <th class="w-1/5 sm:w-1/6">P.Líq.Total</th>
-              <th class="w-1/5 sm:w-1/6">Tara (Pote)</th>
-              <th class="w-1/5 sm:w-2/6">Hora</th>
-              <th class="w-1/5 sm:w-1/6">Ações</th>
+              <th class="w-auto">Código</th> <th class="w-auto text-right">P.Líq.Total</th>
+              <th class="w-auto text-right">Tara (Pote)</th>
+              <th class="w-auto text-center">Hora</th>
+              <th class="w-auto text-center">Ações</th>
             </tr>
           </thead>
           <tbody id="listaItensBody">
