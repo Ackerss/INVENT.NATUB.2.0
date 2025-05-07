@@ -1,14 +1,14 @@
 /* ========= CONFIG ========= */
 const GOOGLE_SCRIPT_URL =
   'https://script.google.com/macros/s/AKfycbwy_aKGV9xAd9sBJRGG66LohrR3s0l_DbDCnOveCEHaE_RGjNqgTHbkiBX8ngks3-nO/exec'; // SEU ÚLTIMO URL FUNCIONAL
-const APP_VERSION = '29-abr-2025 - Melhorias UI/UX e Funcionais v2';
+const APP_VERSION = '30-abr-2025 - Melhorias Finais e Correção Zimbro';
 const ENVIO_DELAY_MS = 500;
 
 /* ========= VARS ========= */
-const ITENS_KEY = 'inv_granel_itens_v4';
+const ITENS_KEY = 'inv_granel_itens_v5_final'; // Nova chave para refletir edições
 const NOME_USUARIO_KEY = 'inventarioGranelUsuario';
 let nomeUsuario = '', enviando = false, letraPoteSel = 'Nenhuma', itens = [], MAPA = {};
-let editandoItemId = null;
+let editandoItemId = null; // Para controlar se estamos editando um item
 
 /* refs DOM */
 const $ = id => document.getElementById(id);
@@ -35,7 +35,7 @@ const codigoProdutoError = $('codigoProdutoError');
 const pesoTaraKgError = $('pesoTaraKgError');
 const pesoComPoteKgError = $('pesoComPoteKgError');
 const pesoExtraKgError = $('pesoExtraKgError');
-const inputNomeUsuarioError = $('inputNomeUsuarioError'); // Adicionado para erro no modal
+const inputNomeUsuarioError = $('inputNomeUsuarioError');
 
 
 /* ---------- INIT ---------- */
@@ -47,13 +47,12 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   renderizaLista();
   verificaNomeUsuario();
   updateBotaoRegistrar();
-  selecionaBotaoNenhuma();
+  selecionaBotaoNenhuma(); // Garante que 'Nenhuma' comece selecionado visualmente
   limpaMensagensErro();
 });
 
 /* ---------- Setup Eventos ---------- */
 function setupEventListeners() {
-  // Modal Nome
   salvaNmBtn.addEventListener('click', salvaNome);
   inpNome.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === 'Done') salvaNome(); });
   nomeDisp.addEventListener('click', abrirModalNome);
@@ -61,26 +60,22 @@ function setupEventListeners() {
   closeModalNomeBtn.addEventListener('click', fecharModalNome);
   overlay.addEventListener('click', fecharModalNome);
 
-  // Navegação Enter/Go
   const goKeys = ['Enter','Go','Next','Done','Send'];
   codigoInp.addEventListener('keydown', e => { if (goKeys.includes(e.key)) { e.preventDefault(); taraInp.focus(); taraInp.select();} });
   taraInp.addEventListener('keydown', e => { if (goKeys.includes(e.key)) { e.preventDefault(); pesoComPoteInp.focus(); pesoComPoteInp.select();} });
   pesoComPoteInp.addEventListener('keydown', e => { if (goKeys.includes(e.key)) { e.preventDefault(); pesoExtraInp.focus(); pesoExtraInp.select();}});
   pesoExtraInp.addEventListener('keydown', e => { if (goKeys.includes(e.key)) { e.preventDefault(); btnReg.click(); }});
 
-  // Inputs e validação
   [codigoInp, taraInp, pesoComPoteInp, pesoExtraInp].forEach(inp => {
     inp.addEventListener('input', () => {
       limpaErroCampo(inp.id + 'Error');
       if (inp === pesoComPoteInp || inp === taraInp || inp === pesoExtraInp) {
         atualizaDisplayCalculoPeso();
       }
-      // Atualiza botão registrar se qualquer um dos campos chave for alterado
       updateBotaoRegistrar();
     });
-    // Validação de entrada para campos numéricos (text com inputmode decimal)
     if (inp.inputMode === 'decimal') {
-        inp.addEventListener('input', formataEntradaNumerica); // Usar input para permitir colar
+        inp.addEventListener('input', formataEntradaNumerica);
     }
   });
 
@@ -100,126 +95,120 @@ function setupEventListeners() {
 function verificaNomeUsuario() {
   nomeUsuario = localStorage.getItem(NOME_USUARIO_KEY) || '';
   mostrarNome();
-  if (!nomeUsuario) {
-    abrirModalNome();
-  }
-  updateBotaoRegistrar(); // Atualiza botões que dependem do nome
+  if (!nomeUsuario) { abrirModalNome(); }
+  updateBotaoRegistrar();
 }
 function abrirModalNome() {
-  inpNome.value = nomeUsuario;
-  limpaErroCampo(inputNomeUsuarioError); // Limpa erro ao abrir
-  overlay.classList.add('active');
-  modal.classList.add('active');
-  inpNome.focus();
-  if(nomeUsuario) inpNome.select();
+  inpNome.value = nomeUsuario; limpaErroCampo(inputNomeUsuarioError);
+  overlay.classList.add('active'); modal.classList.add('active');
+  inpNome.focus(); if(nomeUsuario) inpNome.select();
 }
 function fecharModalNome() {
-    overlay.classList.remove('active');
-    modal.classList.remove('active');
-    limpaErroCampo(inputNomeUsuarioError); // Limpa erro ao fechar
+    overlay.classList.remove('active'); modal.classList.remove('active');
+    limpaErroCampo(inputNomeUsuarioError);
 }
 function salvaNome() {
   const n = inpNome.value.trim();
-  if (!n) {
-    mostraMensagemErroCampo(inputNomeUsuarioError, 'Por favor, digite seu nome.'); // Usa a div de erro
-    inpNome.focus();
-    return;
-  }
+  if (!n) { mostraMensagemErroCampo(inputNomeUsuarioError, 'Por favor, digite seu nome.'); inpNome.focus(); return; }
   limpaErroCampo(inputNomeUsuarioError);
   nomeUsuario = n; localStorage.setItem(NOME_USUARIO_KEY, n); mostrarNome(); fecharModalNome(); updateBotaoRegistrar();
 }
 function mostrarNome() {
-  if (nomeUsuario) {
-    nomeDisp.textContent = `Usuário: ${nomeUsuario}`;
-  } else {
-    nomeDisp.textContent = 'Usuário: (Não definido - Clique para definir)';
-  }
+  nomeDisp.textContent = nomeUsuario ? `Usuário: ${nomeUsuario}` : 'Usuário: (Não definido - Clique para definir)';
 }
 
 /* ---------- Carregar Potes (Produtos) ---------- */
 async function carregaPotes() {
-  try { const response = await fetch('potes.json'); if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`); const data = await response.json(); MAPA = data.reduce((map, pote) => { map[pote.codigo] = pote; return map; }, {}); console.log('Potes carregados:', Object.keys(MAPA).length); geraBotoesTara(); } catch (error) { console.error("Erro ao carregar potes.json:", error); letras.innerHTML = '<span class="text-red-500">Erro ao carregar potes.</span>'; }
+  try { const response = await fetch('potes.json'); if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`); const data = await response.json(); MAPA = data.reduce((map, pote) => { map[String(pote.codigo).trim()] = pote; return map; }, {}); console.log('Potes carregados:', Object.keys(MAPA).length); geraBotoesTara(); } catch (error) { console.error("Erro ao carregar potes.json:", error); letras.innerHTML = '<span class="text-red-500">Erro ao carregar potes.</span>'; }
 }
 
 /* ---------- Gerar Botões de Tara Rápida ---------- */
 function geraBotoesTara() {
-    letras.innerHTML = ''; const potesUnicos = {}; Object.values(MAPA).forEach(p => { if (p.letra && p.tara !== undefined && p.letra !== 'Nenhuma' && !potesUnicos[p.letra]) { potesUnicos[p.letra] = p.tara; } }); Object.keys(potesUnicos).sort().forEach(letra => { const tara = potesUnicos[letra]; const btn = document.createElement('button'); btn.className = 'tara-button'; btn.dataset.taraKg = tara; btn.dataset.letra = letra; btn.innerHTML = `${letra} <i class="fas fa-check ml-1 hidden"></i>`; letras.appendChild(btn); });
+    letras.innerHTML = ''; const potesUnicos = {};
+    Object.values(MAPA).forEach(p => {
+        if (p.letra && p.tara !== undefined && p.letra !== 'Nenhuma' && !potesUnicos[p.letra]) {
+            potesUnicos[p.letra] = p.tara;
+        }
+    });
+    Object.keys(potesUnicos).sort().forEach(letra => {
+        const tara = potesUnicos[letra]; const btn = document.createElement('button');
+        btn.className = 'tara-button'; btn.dataset.taraKg = tara; btn.dataset.letra = letra;
+        btn.innerHTML = `${letra} <i class="fas fa-check ml-1 hidden"></i>`; letras.appendChild(btn);
+    });
 }
 
 /* ---------- Funções de Tara ---------- */
 function handleTaraRapidaClick(event) {
-    const btn = event.target.closest('.tara-button');
-    if (!btn) return;
-
-    desmarcaBotoesTara();
-    btn.classList.add('selected');
-    btn.querySelector('i')?.classList.remove('hidden'); // Mostra check
-
-    taraInp.value = parseFloat(btn.dataset.taraKg).toFixed(3);
-    limpaErroCampo(pesoTaraKgError);
-    letraPoteSel = btn.dataset.letra;
-    spanLetra.textContent = `(${letraPoteSel})`;
+    const btn = event.target.closest('.tara-button'); if (!btn) return;
+    desmarcaBotoesTara(); btn.classList.add('selected'); btn.querySelector('i')?.classList.remove('hidden');
+    taraInp.value = parseFloat(btn.dataset.taraKg).toFixed(3); limpaErroCampo(pesoTaraKgError);
+    letraPoteSel = btn.dataset.letra; spanLetra.textContent = `(${letraPoteSel})`;
 
     if (letraPoteSel === 'Nenhuma') {
-        pesoComPoteInp.value = '0.000';
-        pesoComPoteInp.classList.add('input-auto-filled');
-        limpaErroCampo(pesoComPoteKgError);
-        pesoExtraInp.focus();
-        pesoExtraInp.select();
+        pesoComPoteInp.value = '0.000'; pesoComPoteInp.classList.add('input-auto-filled');
+        limpaErroCampo(pesoComPoteKgError); pesoExtraInp.focus(); pesoExtraInp.select();
     } else {
-        pesoComPoteInp.classList.remove('input-auto-filled');
-        pesoComPoteInp.focus();
-        pesoComPoteInp.select();
+        pesoComPoteInp.classList.remove('input-auto-filled'); pesoComPoteInp.focus(); pesoComPoteInp.select();
     }
-    atualizaDisplayCalculoPeso();
-    updateBotaoRegistrar();
+    atualizaDisplayCalculoPeso(); updateBotaoRegistrar();
 }
-
 function handleTaraManualInput() {
     desmarcaBotoesTara(); letraPoteSel = 'Manual'; spanLetra.textContent = '(Manual)';
     pesoComPoteInp.classList.remove('input-auto-filled');
-    if (!taraInp.value.trim()) { selecionaBotaoNenhuma(); }
-    else { limpaErroCampo(pesoTaraKgError); } // Limpa erro se algo for digitado
+    if (!taraInp.value.trim()) { selecionaBotaoNenhuma(); } else { limpaErroCampo(pesoTaraKgError); }
     atualizaDisplayCalculoPeso();
 }
 function desmarcaBotoesTara() {
     document.querySelectorAll('.tara-button.selected').forEach(b => {
-        b.classList.remove('selected');
-        b.querySelector('i')?.classList.add('hidden'); // Esconde check
+        b.classList.remove('selected'); b.querySelector('i')?.classList.add('hidden');
     });
 }
 function selecionaBotaoNenhuma() {
     desmarcaBotoesTara(); const btnNenhumaFixo = document.querySelector('.tara-button[data-letra="Nenhuma"]');
     if(btnNenhumaFixo) {
-        btnNenhumaFixo.classList.add('selected');
-        btnNenhumaFixo.querySelector('i')?.classList.remove('hidden');
-        taraInp.value = parseFloat(btnNenhumaFixo.dataset.taraKg).toFixed(3);
-        letraPoteSel = 'Nenhuma';
-        spanLetra.textContent = '(Nenhuma)';
+        btnNenhumaFixo.classList.add('selected'); btnNenhumaFixo.querySelector('i')?.classList.remove('hidden');
+        taraInp.value = parseFloat(btnNenhumaFixo.dataset.taraKg).toFixed(3); // Será 0.000
+        letraPoteSel = 'Nenhuma'; spanLetra.textContent = '(Nenhuma)';
     }
     atualizaDisplayCalculoPeso();
 }
 
-/* ---------- Busca Tara Automática ---------- */
+/* ---------- Busca Tara Automática (CORRIGIDO PARA ZIMBRO) ---------- */
 function buscaTaraAutomatica() {
   const codigo = codigoInp.value.trim();
   limpaErroCampo(codigoProdutoError);
   const produto = MAPA[codigo];
+
+  pesoComPoteInp.classList.remove('input-auto-filled'); // Remove estilo antes de nova lógica
+
   if (produto) {
     nomeDiv.textContent = produto.Nome || 'Produto sem nome';
-    if (!taraInp.value.trim() || letraPoteSel === 'Nenhuma' || pesoComPoteInp.classList.contains('input-auto-filled')) { // Se tara vazia, ou nenhuma, ou pote foi auto-zerado
-        if (produto.tara !== undefined && produto.tara !== null) {
+    // Se o produto explicitamente não tem letra ou tara é 0, OU se o campo de tara ainda estiver vazio/Nenhuma
+    if ((!produto.letra || produto.tara === 0 || produto.tara === "0" || produto.tara === null) || (!taraInp.value.trim() || letraPoteSel === 'Nenhuma')) {
+        if (produto.tara !== undefined && produto.tara !== null && produto.letra && produto.letra !== "Nenhuma") { // Produto tem tara e letra válidas
             taraInp.value = parseFloat(produto.tara).toFixed(3);
             desmarcaBotoesTara();
             const btnLetra = document.querySelector(`.tara-button[data-letra="${produto.letra}"]`);
             if (btnLetra) { btnLetra.classList.add('selected'); btnLetra.querySelector('i')?.classList.remove('hidden'); letraPoteSel = produto.letra; spanLetra.textContent = `(${produto.letra})`; }
-            else { letraPoteSel = 'Manual'; spanLetra.textContent = '(Manual)'; } // Caso raro de letra sem botão
-            pesoComPoteInp.classList.remove('input-auto-filled'); // Remove se preencheu tara de produto
-        } else { selecionaBotaoNenhuma(); } // Produto sem tara, seleciona Nenhuma
+            else { letraPoteSel = 'Manual'; spanLetra.textContent = '(Manual)'; } // Letra do JSON não tem botão
+        } else { // Produto não tem tara/letra definida no JSON OU usuário quer forçar "Nenhuma"
+            selecionaBotaoNenhuma(); // Seleciona "Nenhuma", que zera a tara
+            // Se produto não tem pote, o foco deve ir para peso extra após código
+            if (!produto.letra || produto.tara === 0) {
+                 pesoComPoteInp.value = '0.000'; // Zera peso com pote se produto nao tem pote
+                 pesoComPoteInp.classList.add('input-auto-filled');
+                 // pesoExtraInp.focus(); // Opcional: mover foco direto para peso extra
+            }
+        }
     }
+    // Se já havia uma tara manual ou de outro pote selecionada, não sobrescreve, a menos que explicitamente seja "Nenhuma"
   } else {
     if(codigo) nomeDiv.textContent = 'Produto não cadastrado';
     else nomeDiv.textContent = '';
+    // Se código não encontrado, não muda a tara selecionada, mas limpa o campo se não for manual
+    if (letraPoteSel !== 'Manual') {
+        // selecionaBotaoNenhuma(); // Ou apenas limpa taraInp.value?
+    }
   }
   updateBotaoRegistrar();
   atualizaDisplayCalculoPeso();
@@ -231,6 +220,7 @@ function updateBotaoRegistrar() {
   const codigoOk = codigoInp.value.trim() !== '';
   const pesoComPoteValor = pesoComPoteInp.value.trim();
   const pesoExtraValor = pesoExtraInp.value.trim();
+  // Habilita se (pesoComPote tem valor) OU (pesoComPote está vazio E pesoExtra tem valor)
   const pesoOk = (pesoComPoteValor !== '') || (pesoComPoteValor === '' && pesoExtraValor !== '');
 
   btnReg.disabled = !(nomeOk && codigoOk && pesoOk);
@@ -244,84 +234,38 @@ function limparItensLocais() { if (enviando) { alert("Aguarde o término do envi
 
 /* ---------- Validação e Feedback de Erro ---------- */
 function formataEntradaNumerica(event) {
-    // Permite apenas números, um ponto ou uma vírgula. Substitui vírgula por ponto.
     let valor = event.target.value;
-    valor = valor.replace(/[^0-9.,]/g, ''); // Remove caracteres não permitidos
-    valor = valor.replace(',', '.'); // Converte vírgula para ponto
-
-    // Garante apenas um ponto decimal
+    valor = valor.replace(/[^0-9.,]/g, '').replace(',', '.');
     const partes = valor.split('.');
-    if (partes.length > 2) {
-        valor = partes[0] + '.' + partes.slice(1).join('');
-    }
+    if (partes.length > 2) { valor = partes[0] + '.' + partes.slice(1).join(''); }
     event.target.value = valor;
 }
-
-function permiteApenasNumerosSeparador(event) { // Usado no keypress, menos efetivo que 'input' para colar
-    const charCode = event.which ? event.which : event.keyCode;
-    const currentValue = event.target.value;
-    if (charCode === 8 || charCode === 46 || charCode === 9 || charCode === 27 || charCode === 13 || (charCode >= 35 && charCode <= 40)) { return; }
-    if ((charCode === 46 || charCode === 44) && currentValue.indexOf('.') === -1 && currentValue.indexOf(',') === -1) { return; }
-    if (charCode < 48 || charCode > 57) { event.preventDefault(); }
-}
-
 function mostraMensagemErroCampo(campoOuId, mensagem) {
-    const el = typeof campoOuId === 'string' ? $(campoOuId) : campoOuId; // Aceita ID ou elemento
-    const inputEl = el.id.includes('Error') ? $(el.id.replace('Error', '')) : el; // Acha o input associado
-
-    if (el.id.includes('Error')) { // Se for uma div de erro
-        el.textContent = mensagem;
-    }
+    const el = typeof campoOuId === 'string' ? $(campoOuId) : campoOuId;
+    const inputEl = el.id.includes('Error') ? $(el.id.replace('Error', '')) : el;
+    if (el.id.includes('Error')) { el.textContent = mensagem; }
     if (inputEl) inputEl.classList.add('input-error');
 }
 function limpaErroCampo(campoOuId) {
     const el = typeof campoOuId === 'string' ? $(campoOuId) : campoOuId;
     const inputEl = el.id.includes('Error') ? $(el.id.replace('Error', '')) : el;
-
-    if (el.id.includes('Error')) {
-        el.textContent = '';
-    }
+    if (el.id.includes('Error')) { el.textContent = ''; }
     if (inputEl) inputEl.classList.remove('input-error');
 }
-
 function limpaMensagensErro() {
-    [codigoProdutoError, pesoTaraKgError, pesoComPoteKgError, pesoExtraKgError, inputNomeUsuarioError].forEach(el => {
-        if(el) limpaErroCampo(el);
-    });
-    [codigoInp, taraInp, pesoComPoteInp, pesoExtraInp, inpNome].forEach(inp => {
-        if(inp) inp.classList.remove('input-error');
-    });
+    [codigoProdutoError, pesoTaraKgError, pesoComPoteKgError, pesoExtraKgError, inputNomeUsuarioError].forEach(el => { if(el) limpaErroCampo(el); });
+    [codigoInp, taraInp, pesoComPoteInp, pesoExtraInp, inpNome].forEach(inp => { if(inp) inp.classList.remove('input-error'); });
 }
 function validaCamposFormulario() {
-    limpaMensagensErro();
-    let isValid = true;
-    if (!codigoInp.value.trim()) {
-        mostraMensagemErroCampo(codigoProdutoError, 'Código é obrigatório.');
-        isValid = false;
-    }
-    const taraStr = taraInp.value.replace(',', '.').trim();
-    const taraVal = parseFloat(taraStr);
-    if (taraStr !== "" && isNaN(taraVal)) { // Permite tara vazia (será 0)
-        mostraMensagemErroCampo(pesoTaraKgError, 'Tara inválida.');
-        isValid = false;
-    }
-
-    const pesoComPoteStr = pesoComPoteInp.value.replace(',', '.').trim();
-    const pesoComPoteVal = parseFloat(pesoComPoteStr);
-    const pesoExtraStr = pesoExtraInp.value.replace(',', '.').trim();
-    const pesoExtraVal = parseFloat(pesoExtraStr);
-
-    if (pesoComPoteStr === "" && pesoExtraStr === "") {
-        mostraMensagemErroCampo(pesoComPoteKgError, 'Peso com pote ou Peso extra é obrigatório.');
-        isValid = false;
-    } else if (pesoComPoteStr !== "" && isNaN(pesoComPoteVal)) {
-        mostraMensagemErroCampo(pesoComPoteKgError, 'Peso com pote inválido.');
-        isValid = false;
-    }
-     if (pesoExtraStr !== "" && isNaN(pesoExtraVal)) {
-        mostraMensagemErroCampo(pesoExtraKgError, 'Peso extra inválido.');
-        isValid = false;
-    }
+    limpaMensagensErro(); let isValid = true;
+    if (!codigoInp.value.trim()) { mostraMensagemErroCampo(codigoProdutoError, 'Código é obrigatório.'); isValid = false; }
+    const taraStr = taraInp.value.replace(',', '.').trim(); const taraVal = parseFloat(taraStr);
+    if (taraStr !== "" && isNaN(taraVal)) { mostraMensagemErroCampo(pesoTaraKgError, 'Tara inválida.'); isValid = false; }
+    const pesoComPoteStr = pesoComPoteInp.value.replace(',', '.').trim(); const pesoComPoteVal = parseFloat(pesoComPoteStr);
+    const pesoExtraStr = pesoExtraInp.value.replace(',', '.').trim(); const pesoExtraVal = parseFloat(pesoExtraStr);
+    if (pesoComPoteStr === "" && pesoExtraStr === "") { mostraMensagemErroCampo(pesoComPoteKgError, 'Peso com pote ou Peso extra é obrigatório.'); isValid = false; }
+    else if (pesoComPoteStr !== "" && isNaN(pesoComPoteVal)) { mostraMensagemErroCampo(pesoComPoteKgError, 'Peso com pote inválido.'); isValid = false; }
+    if (pesoExtraStr !== "" && isNaN(pesoExtraVal)) { mostraMensagemErroCampo(pesoExtraKgError, 'Peso extra inválido.'); isValid = false; }
     return isValid;
 }
 
@@ -330,31 +274,24 @@ function atualizaDisplayCalculoPeso() {
     const tara = parseFloat(taraInp.value.replace(',', '.')) || 0;
     const pesoComPote = parseFloat(pesoComPoteInp.value.replace(',', '.')) || 0;
     const pesoExtra = parseFloat(pesoExtraInp.value.replace(',', '.')) || 0;
-
-    if (pesoComPoteInp.value.trim() === "" && pesoExtraInp.value.trim() === "") {
-        calculoPesoLiquidoDisplay.textContent = "";
-        return;
-    }
+    if (pesoComPoteInp.value.trim() === "" && pesoExtraInp.value.trim() === "") { calculoPesoLiquidoDisplay.textContent = ""; return; }
     const pesoLiquidoPote = pesoComPote - tara;
     const pesoLiquidoTotal = +(pesoLiquidoPote + pesoExtra).toFixed(3);
     calculoPesoLiquidoDisplay.textContent = `Peso Líquido Calculado: ${pesoLiquidoTotal.toFixed(3)} kg`;
 }
 
-
 /* ---------- Registrar ou Salvar Item Localmente ---------- */
 function handleRegistrarOuSalvarItem() {
-    if (!validaCamposFormulario()) {
-        mostraStatus('Verifique os erros no formulário.', 'error');
-        return;
-    }
+    if (!validaCamposFormulario()) { mostraStatus('Verifique os erros no formulário.', 'error'); return; }
     const codigo = codigoInp.value.trim();
     let taraInput = parseFloat(taraInp.value.replace(',', '.')) || 0;
     const pesoComPote = parseFloat(pesoComPoteInp.value.replace(',', '.')) || 0;
     const pesoExtra = parseFloat(pesoExtraInp.value.replace(',', '.')) || 0;
-    let taraCalculo = taraInput;
-    let letraPoteCalculo = letraPoteSel;
+    let taraCalculo = taraInput; let letraPoteCalculo = letraPoteSel;
 
-    if (pesoComPote === 0 && pesoComPoteInp.classList.contains('input-auto-filled')) {
+    // Se pesoComPote é 0 (porque "Nenhuma" foi clicado OU porque o usuário digitou 0)
+    // E há peso extra, então a tara deve ser 0 e a letra "Nenhuma".
+    if (pesoComPote === 0 && (pesoComPoteInp.classList.contains('input-auto-filled') || pesoComPoteInp.value.trim() === "0" || pesoComPoteInp.value.trim() === "0.000")) {
         taraCalculo = 0;
         letraPoteCalculo = 'Nenhuma';
     }
@@ -364,8 +301,7 @@ function handleRegistrarOuSalvarItem() {
 
     if (pesoLiquidoTotal <= 0 && !(pesoComPote === 0 && pesoExtra > 0 && taraCalculo === 0)) {
         if (!(pesoComPote === 0 && pesoExtra > 0 && taraCalculo === 0 && pesoLiquidoTotal === pesoExtra)) {
-            mostraMensagemErroCampo(calculoPesoLiquidoDisplay, 'Peso Líquido Total zerado ou negativo.');
-            return;
+            mostraMensagemErroCampo(calculoPesoLiquidoDisplay, 'Peso Líquido Total zerado ou negativo.'); return;
         }
     }
 
@@ -374,22 +310,14 @@ function handleRegistrarOuSalvarItem() {
         timestamp: new Date().toISOString(), usuario: nomeUsuario,
         codigo: codigo, nomeProduto: produtoInfo.Nome || 'PRODUTO NÃO CADASTRADO',
         pesoLiquido: pesoLiquidoTotal, tara: taraCalculo, pesoComPote: pesoComPote,
-        pesoExtra: pesoExtra, letraPote: letraPoteCalculo,
-        statusEnvio: null
+        pesoExtra: pesoExtra, letraPote: letraPoteCalculo, statusEnvio: null
     };
 
     if (editandoItemId !== null) {
         const index = itens.findIndex(item => item.id === editandoItemId);
-        if (index > -1) {
-            itens[index] = { ...itens[index], ...itemData, id: editandoItemId };
-            mostraStatus('Item atualizado localmente!', 'success');
-        }
+        if (index > -1) { itens[index] = { ...itens[index], ...itemData, id: editandoItemId }; mostraStatus('Item atualizado localmente!', 'success'); }
         editandoItemId = null;
-    } else {
-        itemData.id = Date.now();
-        itens.push(itemData);
-        mostraStatus('Item registrado localmente!', 'success');
-    }
+    } else { itemData.id = Date.now(); itens.push(itemData); mostraStatus('Item registrado localmente!', 'success'); }
     salvaLocais(); limparFormulario(); codigoInp.focus(); updateBotaoRegistrar();
 }
 
@@ -407,8 +335,7 @@ function limparFormulario() {
 /* ---------- Edição de Itens ---------- */
 function iniciarEdicaoItem(id) {
     const itemParaEditar = itens.find(item => item.id === id); if (!itemParaEditar) return;
-    limpaMensagensErro(); // Limpa erros antes de preencher
-    editandoItemId = id;
+    limpaMensagensErro(); editandoItemId = id;
     codigoInp.value = itemParaEditar.codigo; taraInp.value = itemParaEditar.tara.toFixed(3);
     pesoComPoteInp.value = itemParaEditar.pesoComPote.toFixed(3);
     pesoExtraInp.value = itemParaEditar.pesoExtra.toFixed(3);
@@ -416,7 +343,7 @@ function iniciarEdicaoItem(id) {
     desmarcaBotoesTara(); letraPoteSel = itemParaEditar.letraPote;
     const btnLetra = document.querySelector(`.tara-button[data-letra="${letraPoteSel}"]`);
     if (btnLetra) { btnLetra.classList.add('selected'); btnLetra.querySelector('i')?.classList.remove('hidden');}
-    else { letraPoteSel = 'Manual'; } // Garante que se não achar botão, seja 'Manual'
+    else { letraPoteSel = 'Manual'; }
     spanLetra.textContent = `(${letraPoteSel})`;
     pesoComPoteInp.classList.remove('input-auto-filled');
     textoBotaoRegistrar.textContent = 'Salvar Alterações';
@@ -428,12 +355,9 @@ function iniciarEdicaoItem(id) {
 
 /* ---------- Renderizar Lista de Pendentes ---------- */
 function renderizaLista() {
-  tbody.innerHTML = '';
-  let pesoLiquidoTotalPendente = 0;
+  tbody.innerHTML = ''; let pesoLiquidoTotalPendente = 0;
   itens.forEach(item => pesoLiquidoTotalPendente += item.pesoLiquido);
   totalizadorPendentes.textContent = `Total de Itens: ${itens.length} | P.Líq. Total: ${pesoLiquidoTotalPendente.toFixed(3)} kg`;
-
-
   if (itens.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">Nenhum item local pendente.</td></tr>'; enviarTodosBtn.disabled = true; return; }
   enviarTodosBtn.disabled = enviando;
   [...itens].reverse().forEach((item) => {
