@@ -1,14 +1,14 @@
 /* ========= CONFIG ========= */
 const GOOGLE_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbwy_aKGV9xAd9sBJRGG66LohrR3s0l_DbDCnOveCEHaE_RGjNqgTHbkiBX8ngks3-nO/exec'; // SEU ÚLTIMO URL FUNCIONAL
-const APP_VERSION = '30-abr-2025 - Melhorias Finais e Correção Zimbro';
+  'https://script.google.com/macros/s/AKfycbwy_aKGV9xAd9sBJRGG66LohrR3s0l_DbDCnOveCEHaE_RGjNqgTHbkiBX8ngks3-nO/exec'; // Mantido o último URL funcional
+const APP_VERSION = '30-abr-2025 - Feedback Visual Final'; // Versão Atualizada
 const ENVIO_DELAY_MS = 500;
 
 /* ========= VARS ========= */
-const ITENS_KEY = 'inv_granel_itens_v5_final'; // Nova chave para refletir edições
+const ITENS_KEY = 'inv_granel_itens_v5_final'; // Mantendo chave
 const NOME_USUARIO_KEY = 'inventarioGranelUsuario';
 let nomeUsuario = '', enviando = false, letraPoteSel = 'Nenhuma', itens = [], MAPA = {};
-let editandoItemId = null; // Para controlar se estamos editando um item
+let editandoItemId = null;
 
 /* refs DOM */
 const $ = id => document.getElementById(id);
@@ -25,7 +25,7 @@ const codigoInp=$('codigoProduto'), nomeDiv=$('nomeProdutoDisplay'),
       overlay=$('overlayNomeUsuario'), inpNome=$('inputNomeUsuario'),
       spanLetra=$('letraPoteSelecionado'), enviarTodosBtn=$('enviarTodosBtn'),
       textoBotaoEnviar=$('textoBotaoEnviar'),
-      totalizadorPendentes=$('totalizadorPendentes'),
+      totalizadorPendentes=$('totalizadorPendentes'), // Atualizado para mostrar contagem correta
       btnLimpar=$('limparSessaoLocalBtn'),
       btnAlterarNome=$('alterarNomeBtn'), salvaNmBtn=$('salvarNomeUsuarioBtn'),
       closeModalNomeBtn=$('closeModalNomeBtn'),
@@ -44,10 +44,10 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   setupEventListeners();
   carregaLocais();
   await carregaPotes();
-  renderizaLista();
+  renderizaLista(); // Renderiza com dados carregados
   verificaNomeUsuario();
   updateBotaoRegistrar();
-  selecionaBotaoNenhuma(); // Garante que 'Nenhuma' comece selecionado visualmente
+  selecionaBotaoNenhuma();
   limpaMensagensErro();
 });
 
@@ -108,8 +108,7 @@ function fecharModalNome() {
     limpaErroCampo(inputNomeUsuarioError);
 }
 function salvaNome() {
-  const n = inpNome.value.trim();
-  if (!n) { mostraMensagemErroCampo(inputNomeUsuarioError, 'Por favor, digite seu nome.'); inpNome.focus(); return; }
+  const n = inpNome.value.trim(); if (!n) { mostraMensagemErroCampo(inputNomeUsuarioError, 'Por favor, digite seu nome.'); inpNome.focus(); return; }
   limpaErroCampo(inputNomeUsuarioError);
   nomeUsuario = n; localStorage.setItem(NOME_USUARIO_KEY, n); mostrarNome(); fecharModalNome(); updateBotaoRegistrar();
 }
@@ -125,16 +124,8 @@ async function carregaPotes() {
 /* ---------- Gerar Botões de Tara Rápida ---------- */
 function geraBotoesTara() {
     letras.innerHTML = ''; const potesUnicos = {};
-    Object.values(MAPA).forEach(p => {
-        if (p.letra && p.tara !== undefined && p.letra !== 'Nenhuma' && !potesUnicos[p.letra]) {
-            potesUnicos[p.letra] = p.tara;
-        }
-    });
-    Object.keys(potesUnicos).sort().forEach(letra => {
-        const tara = potesUnicos[letra]; const btn = document.createElement('button');
-        btn.className = 'tara-button'; btn.dataset.taraKg = tara; btn.dataset.letra = letra;
-        btn.innerHTML = `${letra} <i class="fas fa-check ml-1 hidden"></i>`; letras.appendChild(btn);
-    });
+    Object.values(MAPA).forEach(p => { if (p.letra && p.tara !== undefined && p.letra !== 'Nenhuma' && !potesUnicos[p.letra]) { potesUnicos[p.letra] = p.tara; } });
+    Object.keys(potesUnicos).sort().forEach(letra => { const tara = potesUnicos[letra]; const btn = document.createElement('button'); btn.className = 'tara-button'; btn.dataset.taraKg = tara; btn.dataset.letra = letra; btn.innerHTML = `${letra} <i class="fas fa-check ml-1 hidden"></i>`; letras.appendChild(btn); });
 }
 
 /* ---------- Funções de Tara ---------- */
@@ -143,7 +134,6 @@ function handleTaraRapidaClick(event) {
     desmarcaBotoesTara(); btn.classList.add('selected'); btn.querySelector('i')?.classList.remove('hidden');
     taraInp.value = parseFloat(btn.dataset.taraKg).toFixed(3); limpaErroCampo(pesoTaraKgError);
     letraPoteSel = btn.dataset.letra; spanLetra.textContent = `(${letraPoteSel})`;
-
     if (letraPoteSel === 'Nenhuma') {
         pesoComPoteInp.value = '0.000'; pesoComPoteInp.classList.add('input-auto-filled');
         limpaErroCampo(pesoComPoteKgError); pesoExtraInp.focus(); pesoExtraInp.select();
@@ -159,70 +149,46 @@ function handleTaraManualInput() {
     atualizaDisplayCalculoPeso();
 }
 function desmarcaBotoesTara() {
-    document.querySelectorAll('.tara-button.selected').forEach(b => {
-        b.classList.remove('selected'); b.querySelector('i')?.classList.add('hidden');
-    });
+    document.querySelectorAll('.tara-button.selected').forEach(b => { b.classList.remove('selected'); b.querySelector('i')?.classList.add('hidden'); });
 }
 function selecionaBotaoNenhuma() {
     desmarcaBotoesTara(); const btnNenhumaFixo = document.querySelector('.tara-button[data-letra="Nenhuma"]');
-    if(btnNenhumaFixo) {
-        btnNenhumaFixo.classList.add('selected'); btnNenhumaFixo.querySelector('i')?.classList.remove('hidden');
-        taraInp.value = parseFloat(btnNenhumaFixo.dataset.taraKg).toFixed(3); // Será 0.000
-        letraPoteSel = 'Nenhuma'; spanLetra.textContent = '(Nenhuma)';
-    }
+    if(btnNenhumaFixo) { btnNenhumaFixo.classList.add('selected'); btnNenhumaFixo.querySelector('i')?.classList.remove('hidden'); taraInp.value = parseFloat(btnNenhumaFixo.dataset.taraKg).toFixed(3); letraPoteSel = 'Nenhuma'; spanLetra.textContent = '(Nenhuma)'; }
     atualizaDisplayCalculoPeso();
 }
 
-/* ---------- Busca Tara Automática (CORRIGIDO PARA ZIMBRO) ---------- */
+/* ---------- Busca Tara Automática ---------- */
 function buscaTaraAutomatica() {
-  const codigo = codigoInp.value.trim();
-  limpaErroCampo(codigoProdutoError);
+  const codigo = codigoInp.value.trim(); limpaErroCampo(codigoProdutoError);
   const produto = MAPA[codigo];
-
-  pesoComPoteInp.classList.remove('input-auto-filled'); // Remove estilo antes de nova lógica
-
+  pesoComPoteInp.classList.remove('input-auto-filled');
   if (produto) {
     nomeDiv.textContent = produto.Nome || 'Produto sem nome';
-    // Se o produto explicitamente não tem letra ou tara é 0, OU se o campo de tara ainda estiver vazio/Nenhuma
-    if ((!produto.letra || produto.tara === 0 || produto.tara === "0" || produto.tara === null) || (!taraInp.value.trim() || letraPoteSel === 'Nenhuma')) {
-        if (produto.tara !== undefined && produto.tara !== null && produto.letra && produto.letra !== "Nenhuma") { // Produto tem tara e letra válidas
-            taraInp.value = parseFloat(produto.tara).toFixed(3);
-            desmarcaBotoesTara();
+    if (!taraInp.value.trim() || letraPoteSel === 'Nenhuma' || pesoComPoteInp.classList.contains('input-auto-filled')) {
+        if (produto.tara !== undefined && produto.tara !== null && produto.letra && produto.letra !== "Nenhuma") {
+            taraInp.value = parseFloat(produto.tara).toFixed(3); desmarcaBotoesTara();
             const btnLetra = document.querySelector(`.tara-button[data-letra="${produto.letra}"]`);
             if (btnLetra) { btnLetra.classList.add('selected'); btnLetra.querySelector('i')?.classList.remove('hidden'); letraPoteSel = produto.letra; spanLetra.textContent = `(${produto.letra})`; }
-            else { letraPoteSel = 'Manual'; spanLetra.textContent = '(Manual)'; } // Letra do JSON não tem botão
-        } else { // Produto não tem tara/letra definida no JSON OU usuário quer forçar "Nenhuma"
-            selecionaBotaoNenhuma(); // Seleciona "Nenhuma", que zera a tara
-            // Se produto não tem pote, o foco deve ir para peso extra após código
-            if (!produto.letra || produto.tara === 0) {
-                 pesoComPoteInp.value = '0.000'; // Zera peso com pote se produto nao tem pote
-                 pesoComPoteInp.classList.add('input-auto-filled');
-                 // pesoExtraInp.focus(); // Opcional: mover foco direto para peso extra
+            else { letraPoteSel = 'Manual'; spanLetra.textContent = '(Manual)'; }
+        } else {
+            selecionaBotaoNenhuma();
+            if (!produto.letra || produto.tara === 0 || produto.tara === null) {
+                 pesoComPoteInp.value = '0.000'; pesoComPoteInp.classList.add('input-auto-filled');
+                 // pesoExtraInp.focus(); // Opcional
             }
         }
     }
-    // Se já havia uma tara manual ou de outro pote selecionada, não sobrescreve, a menos que explicitamente seja "Nenhuma"
   } else {
-    if(codigo) nomeDiv.textContent = 'Produto não cadastrado';
-    else nomeDiv.textContent = '';
-    // Se código não encontrado, não muda a tara selecionada, mas limpa o campo se não for manual
-    if (letraPoteSel !== 'Manual') {
-        // selecionaBotaoNenhuma(); // Ou apenas limpa taraInp.value?
-    }
+    if(codigo) nomeDiv.textContent = 'Produto não cadastrado'; else nomeDiv.textContent = '';
   }
-  updateBotaoRegistrar();
-  atualizaDisplayCalculoPeso();
+  updateBotaoRegistrar(); atualizaDisplayCalculoPeso();
 }
 
 /* ---------- Estado Botão Registrar/Salvar ---------- */
 function updateBotaoRegistrar() {
-  const nomeOk = !!nomeUsuario;
-  const codigoOk = codigoInp.value.trim() !== '';
-  const pesoComPoteValor = pesoComPoteInp.value.trim();
-  const pesoExtraValor = pesoExtraInp.value.trim();
-  // Habilita se (pesoComPote tem valor) OU (pesoComPote está vazio E pesoExtra tem valor)
+  const nomeOk = !!nomeUsuario; const codigoOk = codigoInp.value.trim() !== '';
+  const pesoComPoteValor = pesoComPoteInp.value.trim(); const pesoExtraValor = pesoExtraInp.value.trim();
   const pesoOk = (pesoComPoteValor !== '') || (pesoComPoteValor === '' && pesoExtraValor !== '');
-
   btnReg.disabled = !(nomeOk && codigoOk && pesoOk);
   textoBotaoRegistrar.textContent = editandoItemId !== null ? 'Salvar Alterações' : 'Registrar Item Localmente';
 }
@@ -230,27 +196,31 @@ function updateBotaoRegistrar() {
 /* ---------- Armazenamento Local ---------- */
 function carregaLocais() { itens = JSON.parse(localStorage.getItem(ITENS_KEY) || '[]'); }
 function salvaLocais() { localStorage.setItem(ITENS_KEY, JSON.stringify(itens)); renderizaLista(); }
-function limparItensLocais() { if (enviando) { alert("Aguarde o término do envio atual."); return; } if (itens.length === 0) { mostraStatus('Nenhum item para limpar.', 'info'); return; } if (confirm(`Apagar ${itens.length} registro(s) locais?`)) { itens = []; salvaLocais(); mostraStatus('Registros locais limpos.', 'success'); } }
+function limparItensLocais() {
+    if (enviando) { alert("Aguarde o término do envio atual."); return; }
+    const itensPendentes = itens.filter(item => item.statusEnvio !== 'sucesso');
+    if (itensPendentes.length === 0) { mostraStatus('Nenhum item pendente para limpar.', 'info'); return; }
+    if (confirm(`Apagar ${itensPendentes.length} registro(s) pendentes/com falha? (Enviados serão mantidos)`)) {
+        // Mantém apenas os itens que já foram enviados com sucesso
+        itens = itens.filter(item => item.statusEnvio === 'sucesso');
+        salvaLocais();
+        mostraStatus('Registros pendentes limpos.', 'success');
+    }
+}
 
 /* ---------- Validação e Feedback de Erro ---------- */
 function formataEntradaNumerica(event) {
-    let valor = event.target.value;
-    valor = valor.replace(/[^0-9.,]/g, '').replace(',', '.');
-    const partes = valor.split('.');
-    if (partes.length > 2) { valor = partes[0] + '.' + partes.slice(1).join(''); }
+    let valor = event.target.value; valor = valor.replace(/[^0-9.,]/g, '').replace(',', '.');
+    const partes = valor.split('.'); if (partes.length > 2) { valor = partes[0] + '.' + partes.slice(1).join(''); }
     event.target.value = valor;
 }
 function mostraMensagemErroCampo(campoOuId, mensagem) {
-    const el = typeof campoOuId === 'string' ? $(campoOuId) : campoOuId;
-    const inputEl = el.id.includes('Error') ? $(el.id.replace('Error', '')) : el;
-    if (el.id.includes('Error')) { el.textContent = mensagem; }
-    if (inputEl) inputEl.classList.add('input-error');
+    const el = typeof campoOuId === 'string' ? $(campoOuId) : campoOuId; const inputEl = el.id.includes('Error') ? $(el.id.replace('Error', '')) : el;
+    if (el.id.includes('Error')) { el.textContent = mensagem; } if (inputEl) inputEl.classList.add('input-error');
 }
 function limpaErroCampo(campoOuId) {
-    const el = typeof campoOuId === 'string' ? $(campoOuId) : campoOuId;
-    const inputEl = el.id.includes('Error') ? $(el.id.replace('Error', '')) : el;
-    if (el.id.includes('Error')) { el.textContent = ''; }
-    if (inputEl) inputEl.classList.remove('input-error');
+    const el = typeof campoOuId === 'string' ? $(campoOuId) : campoOuId; const inputEl = el.id.includes('Error') ? $(el.id.replace('Error', '')) : el;
+    if (el.id.includes('Error')) { el.textContent = ''; } if (inputEl) inputEl.classList.remove('input-error');
 }
 function limpaMensagensErro() {
     [codigoProdutoError, pesoTaraKgError, pesoComPoteKgError, pesoExtraKgError, inputNomeUsuarioError].forEach(el => { if(el) limpaErroCampo(el); });
@@ -271,48 +241,35 @@ function validaCamposFormulario() {
 
 /* ---------- Cálculo e Display Peso Líquido (Preview) ---------- */
 function atualizaDisplayCalculoPeso() {
-    const tara = parseFloat(taraInp.value.replace(',', '.')) || 0;
-    const pesoComPote = parseFloat(pesoComPoteInp.value.replace(',', '.')) || 0;
-    const pesoExtra = parseFloat(pesoExtraInp.value.replace(',', '.')) || 0;
+    const tara = parseFloat(taraInp.value.replace(',', '.')) || 0; const pesoComPote = parseFloat(pesoComPoteInp.value.replace(',', '.')) || 0; const pesoExtra = parseFloat(pesoExtraInp.value.replace(',', '.')) || 0;
     if (pesoComPoteInp.value.trim() === "" && pesoExtraInp.value.trim() === "") { calculoPesoLiquidoDisplay.textContent = ""; return; }
-    const pesoLiquidoPote = pesoComPote - tara;
-    const pesoLiquidoTotal = +(pesoLiquidoPote + pesoExtra).toFixed(3);
+    const pesoLiquidoPote = pesoComPote - tara; const pesoLiquidoTotal = +(pesoLiquidoPote + pesoExtra).toFixed(3);
     calculoPesoLiquidoDisplay.textContent = `Peso Líquido Calculado: ${pesoLiquidoTotal.toFixed(3)} kg`;
 }
 
 /* ---------- Registrar ou Salvar Item Localmente ---------- */
 function handleRegistrarOuSalvarItem() {
     if (!validaCamposFormulario()) { mostraStatus('Verifique os erros no formulário.', 'error'); return; }
-    const codigo = codigoInp.value.trim();
-    let taraInput = parseFloat(taraInp.value.replace(',', '.')) || 0;
+    const codigo = codigoInp.value.trim(); let taraInput = parseFloat(taraInp.value.replace(',', '.')) || 0;
     const pesoComPote = parseFloat(pesoComPoteInp.value.replace(',', '.')) || 0;
     const pesoExtra = parseFloat(pesoExtraInp.value.replace(',', '.')) || 0;
     let taraCalculo = taraInput; let letraPoteCalculo = letraPoteSel;
-
-    // Se pesoComPote é 0 (porque "Nenhuma" foi clicado OU porque o usuário digitou 0)
-    // E há peso extra, então a tara deve ser 0 e a letra "Nenhuma".
     if (pesoComPote === 0 && (pesoComPoteInp.classList.contains('input-auto-filled') || pesoComPoteInp.value.trim() === "0" || pesoComPoteInp.value.trim() === "0.000")) {
-        taraCalculo = 0;
-        letraPoteCalculo = 'Nenhuma';
+        taraCalculo = 0; letraPoteCalculo = 'Nenhuma';
     }
-
-    const pesoLiquidoPote = pesoComPote - taraCalculo;
-    const pesoLiquidoTotal = +(pesoLiquidoPote + pesoExtra).toFixed(3);
-
+    const pesoLiquidoPote = pesoComPote - taraCalculo; const pesoLiquidoTotal = +(pesoLiquidoPote + pesoExtra).toFixed(3);
     if (pesoLiquidoTotal <= 0 && !(pesoComPote === 0 && pesoExtra > 0 && taraCalculo === 0)) {
         if (!(pesoComPote === 0 && pesoExtra > 0 && taraCalculo === 0 && pesoLiquidoTotal === pesoExtra)) {
             mostraMensagemErroCampo(calculoPesoLiquidoDisplay, 'Peso Líquido Total zerado ou negativo.'); return;
         }
     }
-
     const produtoInfo = MAPA[codigo] || {};
     const itemData = {
-        timestamp: new Date().toISOString(), usuario: nomeUsuario,
-        codigo: codigo, nomeProduto: produtoInfo.Nome || 'PRODUTO NÃO CADASTRADO',
+        timestamp: new Date().toISOString(), usuario: nomeUsuario, codigo: codigo,
+        nomeProduto: produtoInfo.Nome || 'PRODUTO NÃO CADASTRADO',
         pesoLiquido: pesoLiquidoTotal, tara: taraCalculo, pesoComPote: pesoComPote,
         pesoExtra: pesoExtra, letraPote: letraPoteCalculo, statusEnvio: null
     };
-
     if (editandoItemId !== null) {
         const index = itens.findIndex(item => item.id === editandoItemId);
         if (index > -1) { itens[index] = { ...itens[index], ...itemData, id: editandoItemId }; mostraStatus('Item atualizado localmente!', 'success'); }
@@ -353,31 +310,94 @@ function iniciarEdicaoItem(id) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-/* ---------- Renderizar Lista de Pendentes ---------- */
+/* ---------- Renderizar Lista de Pendentes (MODIFICADO) ---------- */
 function renderizaLista() {
-  tbody.innerHTML = ''; let pesoLiquidoTotalPendente = 0;
-  itens.forEach(item => pesoLiquidoTotalPendente += item.pesoLiquido);
-  totalizadorPendentes.textContent = `Total de Itens: ${itens.length} | P.Líq. Total: ${pesoLiquidoTotalPendente.toFixed(3)} kg`;
-  if (itens.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">Nenhum item local pendente.</td></tr>'; enviarTodosBtn.disabled = true; return; }
-  enviarTodosBtn.disabled = enviando;
+  tbody.innerHTML = '';
+
+  // Filtra itens pendentes e calcula totais
+  const itensPendentes = itens.filter(item => item.statusEnvio !== 'sucesso');
+  let pesoLiquidoTotalPendente = 0;
+  itensPendentes.forEach(item => pesoLiquidoTotalPendente += item.pesoLiquido);
+  totalizadorPendentes.textContent = `Itens Pendentes: ${itensPendentes.length} | P.Líq. Pendente: ${pesoLiquidoTotalPendente.toFixed(3)} kg`;
+
+  // Verifica se há itens (enviados ou não) para exibir na tabela
+  if (itens.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">Nenhum item registrado.</td></tr>';
+    enviarTodosBtn.disabled = true;
+    return;
+  }
+
+  // Habilita/desabilita botão de enviar baseado nos itens PENDENTES
+  enviarTodosBtn.disabled = enviando || itensPendentes.length === 0;
+  textoBotaoEnviar.textContent = itensPendentes.length > 0 ? `Enviar ${itensPendentes.length} Pendente(s)` : 'Nenhum Pendente';
+
+
+  // Renderiza TODOS os itens, mas aplica estilos diferentes
   [...itens].reverse().forEach((item) => {
-    const tr = document.createElement('tr'); if (item.statusEnvio === 'falha') tr.classList.add('bg-red-100');
+    const tr = document.createElement('tr');
+    let rowClass = '';
+    if (item.statusEnvio === 'sucesso') {
+        rowClass = 'item-enviado'; // Classe para fundo verde
+    } else if (item.statusEnvio === 'falha') {
+        rowClass = 'item-falha'; // Classe para fundo vermelho (já definida no CSS)
+    }
+    tr.className = rowClass;
+
     const horaFormatada = new Date(item.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    tr.innerHTML = ` <td class="border px-1 py-1 sm:px-2">${item.codigo}</td> <td class="border px-1 py-1 sm:px-2 text-right">${item.pesoLiquido.toFixed(3)}</td> <td class="border px-1 py-1 sm:px-2 text-right">${item.tara.toFixed(3)} (${item.letraPote})</td> <td class="border px-1 py-1 sm:px-2 text-xs text-center">${horaFormatada}</td> <td class="border px-1 py-1 sm:px-2 text-center"> <button class="text-blue-500 hover:text-blue-700 p-1 mr-1" data-edit-id="${item.id}" title="Editar este item"> <i class="fas fa-edit"></i> </button> <button class="text-red-500 hover:text-red-700 p-1" data-delete-id="${item.id}" title="Excluir este item"> <i class="fas fa-trash-alt"></i> </button> ${item.statusEnvio === 'falha' ? '<i class="fas fa-exclamation-triangle text-yellow-500 item-status-icon" title="Falha no último envio"></i>' : ''} </td> `;
-    tr.querySelector(`button[data-edit-id="${item.id}"]`).addEventListener('click', () => iniciarEdicaoItem(item.id));
-    tr.querySelector(`button[data-delete-id="${item.id}"]`).addEventListener('click', (e) => { const row = e.target.closest('tr'); if (row) row.classList.add('fade-out'); setTimeout(() => excluirItem(item.id), 280); });
+    tr.innerHTML = `
+      <td class="border px-1 py-1 sm:px-2">${item.codigo}</td>
+      <td class="border px-1 py-1 sm:px-2 text-right">${item.pesoLiquido.toFixed(3)}</td>
+      <td class="border px-1 py-1 sm:px-2 text-right">${item.tara.toFixed(3)} (${item.letraPote})</td>
+      <td class="border px-1 py-1 sm:px-2 text-xs text-center">${horaFormatada}</td>
+      <td class="border px-1 py-1 sm:px-2 text-center">
+        <button class="text-blue-500 hover:text-blue-700 p-1 mr-1 ${item.statusEnvio === 'sucesso' ? 'opacity-50 cursor-not-allowed' : ''}" data-edit-id="${item.id}" title="Editar este item" ${item.statusEnvio === 'sucesso' ? 'disabled' : ''}>
+          <i class="fas fa-edit"></i>
+        </button>
+        <button class="text-red-500 hover:text-red-700 p-1" data-delete-id="${item.id}" title="Excluir este item">
+          <i class="fas fa-trash-alt"></i>
+        </button>
+        ${item.statusEnvio === 'falha' ? '<i class="fas fa-exclamation-triangle text-yellow-500 item-status-icon" title="Falha no último envio"></i>' : ''}
+        ${item.statusEnvio === 'sucesso' ? '<i class="fas fa-check-circle text-green-500 item-status-icon" title="Enviado com sucesso"></i>' : ''}
+      </td>
+    `;
+    // Só adiciona listener de edição se não foi enviado
+    if (item.statusEnvio !== 'sucesso') {
+        tr.querySelector(`button[data-edit-id="${item.id}"]`).addEventListener('click', () => iniciarEdicaoItem(item.id));
+    }
+    tr.querySelector(`button[data-delete-id="${item.id}"]`).addEventListener('click', (e) => {
+        const row = e.target.closest('tr');
+        if (row) row.classList.add('fade-out');
+        setTimeout(() => excluirItem(item.id), 280);
+    });
     tbody.appendChild(tr);
   });
 }
 function excluirItem(id) {
-    if (enviando) { alert("Aguarde o término do envio atual."); return; } const itemIndex = itens.findIndex(i => i.id === id); if (itemIndex > -1) { itens.splice(itemIndex, 1); salvaLocais(); }
+    if (enviando) { alert("Aguarde o término do envio atual."); return; }
+    const itemIndex = itens.findIndex(i => i.id === id);
+    if (itemIndex > -1) {
+        // Confirmação extra se o item já foi enviado
+        if (itens[itemIndex].statusEnvio === 'sucesso') {
+            if (!confirm(`Este item já foi enviado com sucesso. Deseja realmente excluí-lo APENAS da lista local?`)) {
+                // Remove a classe fade-out se o usuário cancelar
+                 const row = tbody.querySelector(`button[data-delete-id="${id}"]`)?.closest('tr');
+                 if(row) row.classList.remove('fade-out');
+                return;
+            }
+        }
+        itens.splice(itemIndex, 1);
+        salvaLocais();
+        // Opcional: mostraStatus('Item excluído localmente.', 'info');
+    }
 }
 
 /* ---------- Envio para Google Apps Script ---------- */
 async function enviarTodos() {
-  if (enviando || itens.length === 0) return;
   const itensParaEnviarAgora = itens.filter(item => item.statusEnvio !== 'sucesso');
-  if (itensParaEnviarAgora.length === 0) { mostraStatus('Nenhum item pendente ou com falha para enviar.', 'info'); return; }
+  if (enviando || itensParaEnviarAgora.length === 0) {
+       if (!enviando) mostraStatus('Nenhum item pendente ou com falha para enviar.', 'info');
+       return;
+  }
   enviando = true; enviarTodosBtn.disabled = true; textoBotaoEnviar.textContent = 'Enviando...'; btnLimpar.disabled = true; btnReg.disabled = true;
   progressBarContainer.style.display = 'block'; progressBar.style.width = '0%';
   let enviadosComSucessoCount = 0; let falhasCount = 0;
@@ -388,9 +408,14 @@ async function enviarTodos() {
     } catch (error) { console.error('Falha ao enviar item:', item.id, error); falhasCount++; const indexOriginal = itens.findIndex(original => original.id === item.id); if (indexOriginal > -1) itens[indexOriginal].statusEnvio = 'falha'; mostraStatus(`Falha item ${item.codigo}: ${error.message}`, 'error', 5000, progresso); await new Promise(resolve => setTimeout(resolve, ENVIO_DELAY_MS * 1.5)); }
     if (i < itensParaEnviarAgora.length - 1) { await new Promise(resolve => setTimeout(resolve, ENVIO_DELAY_MS)); }
   }
-  salvaLocais();
-  enviando = false; btnLimpar.disabled = false; updateBotaoRegistrar(); textoBotaoEnviar.textContent = 'Enviar Pendentes'; progressBarContainer.style.display = 'none';
-  if (falhasCount === 0 && enviadosComSucessoCount > 0) { mostraStatus(`Todos os ${enviadosComSucessoCount} itens foram enviados com sucesso!`, 'success'); } else if (falhasCount > 0 && enviadosComSucessoCount > 0) { mostraStatus(`${enviadosComSucessoCount} itens enviados, ${falhasCount} falharam.`, 'error'); } else if (falhasCount > 0 && enviadosComSucessoCount === 0) { mostraStatus(`Falha ao enviar todos os ${falhasCount} itens.`, 'error'); } else if (enviadosComSucessoCount === 0 && falhasCount === 0 && itensParaEnviarAgora.length > 0) { mostraStatus('Nenhum item processado. Verifique.', 'info'); } else { mostraStatus('Não havia itens para enviar.', 'info'); }
+  salvaLocais(); // Salva os status de envio atualizados
+  enviando = false; btnLimpar.disabled = false; updateBotaoRegistrar(); renderizaLista(); // Re-renderiza para atualizar botão e lista
+  progressBarContainer.style.display = 'none';
+  if (falhasCount === 0 && enviadosComSucessoCount > 0) { mostraStatus(`Todos os ${enviadosComSucessoCount} itens pendentes foram enviados com sucesso!`, 'success'); }
+  else if (falhasCount > 0 && enviadosComSucessoCount > 0) { mostraStatus(`${enviadosComSucessoCount} itens enviados, ${falhasCount} falharam.`, 'error'); }
+  else if (falhasCount > 0 && enviadosComSucessoCount === 0) { mostraStatus(`Falha ao enviar todos os ${falhasCount} itens.`, 'error'); }
+  else if (enviadosComSucessoCount === 0 && falhasCount === 0 && itensParaEnviarAgora.length > 0) { mostraStatus('Nenhum item processado. Verifique.', 'info'); }
+  // Não mostra "Não havia itens para enviar" aqui, pois já foi verificado no início
 }
 
 async function enviarItem(item) {
