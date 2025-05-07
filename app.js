@@ -1,7 +1,7 @@
 /* ========= CONFIG ========= */
 const GOOGLE_SCRIPT_URL =
   'https://script.google.com/macros/s/AKfycbwy_aKGV9xAd9sBJRGG66LohrR3s0l_DbDCnOveCEHaE_RGjNqgTHbkiBX8ngks3-nO/exec'; // Mantido o último URL funcional
-const APP_VERSION = '30-abr-2025 - Feedback Visual Final'; // Versão Atualizada
+const APP_VERSION = '30-abr-2025 - Opção Limpar Tudo'; // Versão Atualizada
 const ENVIO_DELAY_MS = 500;
 
 /* ========= VARS ========= */
@@ -25,8 +25,8 @@ const codigoInp=$('codigoProduto'), nomeDiv=$('nomeProdutoDisplay'),
       overlay=$('overlayNomeUsuario'), inpNome=$('inputNomeUsuario'),
       spanLetra=$('letraPoteSelecionado'), enviarTodosBtn=$('enviarTodosBtn'),
       textoBotaoEnviar=$('textoBotaoEnviar'),
-      totalizadorPendentes=$('totalizadorPendentes'), // Atualizado para mostrar contagem correta
-      btnLimpar=$('limparSessaoLocalBtn'),
+      totalizadorPendentes=$('totalizadorPendentes'),
+      btnLimpar=$('limparSessaoLocalBtn'), // Botão único agora
       btnAlterarNome=$('alterarNomeBtn'), salvaNmBtn=$('salvarNomeUsuarioBtn'),
       closeModalNomeBtn=$('closeModalNomeBtn'),
       calculoPesoLiquidoDisplay=$('calculoPesoLiquidoDisplay');
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   setupEventListeners();
   carregaLocais();
   await carregaPotes();
-  renderizaLista(); // Renderiza com dados carregados
+  renderizaLista();
   verificaNomeUsuario();
   updateBotaoRegistrar();
   selecionaBotaoNenhuma();
@@ -88,7 +88,7 @@ function setupEventListeners() {
   taraInp.addEventListener('input', handleTaraManualInput);
   btnReg.addEventListener('click', handleRegistrarOuSalvarItem);
   enviarTodosBtn.addEventListener('click', enviarTodos);
-  btnLimpar.addEventListener('click', limparItensLocais);
+  btnLimpar.addEventListener('click', limparItensLocaisComOpcao); // Chama a nova função
 }
 
 /* ---------- Nome Usuário ---------- */
@@ -174,7 +174,6 @@ function buscaTaraAutomatica() {
             selecionaBotaoNenhuma();
             if (!produto.letra || produto.tara === 0 || produto.tara === null) {
                  pesoComPoteInp.value = '0.000'; pesoComPoteInp.classList.add('input-auto-filled');
-                 // pesoExtraInp.focus(); // Opcional
             }
         }
     }
@@ -196,17 +195,42 @@ function updateBotaoRegistrar() {
 /* ---------- Armazenamento Local ---------- */
 function carregaLocais() { itens = JSON.parse(localStorage.getItem(ITENS_KEY) || '[]'); }
 function salvaLocais() { localStorage.setItem(ITENS_KEY, JSON.stringify(itens)); renderizaLista(); }
-function limparItensLocais() {
-    if (enviando) { alert("Aguarde o término do envio atual."); return; }
-    const itensPendentes = itens.filter(item => item.statusEnvio !== 'sucesso');
-    if (itensPendentes.length === 0) { mostraStatus('Nenhum item pendente para limpar.', 'info'); return; }
-    if (confirm(`Apagar ${itensPendentes.length} registro(s) pendentes/com falha? (Enviados serão mantidos)`)) {
-        // Mantém apenas os itens que já foram enviados com sucesso
-        itens = itens.filter(item => item.statusEnvio === 'sucesso');
-        salvaLocais();
-        mostraStatus('Registros pendentes limpos.', 'success');
+
+/* ---------- Limpar Lista Local (MODIFICADO) ---------- */
+function limparItensLocaisComOpcao() {
+    if (enviando) {
+        alert("Aguarde o término do envio atual antes de limpar a lista.");
+        return;
     }
+    if (itens.length === 0) {
+        mostraStatus('A lista local já está vazia.', 'info');
+        return;
+    }
+
+    // Primeira confirmação: intenção geral de limpar
+    if (confirm("Deseja limpar itens da lista local?\n(Itens enviados com sucesso serão mantidos por padrão)")) {
+
+        // Segunda confirmação: limpar TUDO?
+        if (confirm("Limpar TAMBÉM os itens já enviados com sucesso? (OK = Limpar TUDO, Cancelar = Limpar só Pendentes/Falhas)")) {
+            // Limpar TUDO
+            itens = [];
+            salvaLocais();
+            mostraStatus('Toda a lista local foi limpa.', 'success');
+        } else {
+            // Limpar apenas pendentes e com falha
+            const itensPendentesAntes = itens.filter(item => item.statusEnvio !== 'sucesso').length;
+            if (itensPendentesAntes === 0) {
+                mostraStatus('Nenhum item pendente ou com falha para limpar.', 'info');
+                return;
+            }
+            itens = itens.filter(item => item.statusEnvio === 'sucesso'); // Mantém apenas os enviados
+            salvaLocais();
+            mostraStatus(`Itens pendentes/com falha (${itensPendentesAntes}) foram limpos.`, 'success');
+        }
+    }
+    // Se cancelou a primeira confirmação, não faz nada.
 }
+
 
 /* ---------- Validação e Feedback de Erro ---------- */
 function formataEntradaNumerica(event) {
@@ -314,23 +338,24 @@ function iniciarEdicaoItem(id) {
 function renderizaLista() {
   tbody.innerHTML = '';
 
-  // Filtra itens pendentes e calcula totais
+  // Filtra itens pendentes e calcula totais APENAS dos pendentes
   const itensPendentes = itens.filter(item => item.statusEnvio !== 'sucesso');
   let pesoLiquidoTotalPendente = 0;
   itensPendentes.forEach(item => pesoLiquidoTotalPendente += item.pesoLiquido);
-  totalizadorPendentes.textContent = `Itens Pendentes: ${itensPendentes.length} | P.Líq. Pendente: ${pesoLiquidoTotalPendente.toFixed(3)} kg`;
+  // Atualiza o totalizador para mostrar apenas a contagem e peso dos PENDENTES
+  totalizadorPendentes.textContent = `Pendentes: ${itensPendentes.length} | P.Líq. Pendente: ${pesoLiquidoTotalPendente.toFixed(3)} kg`;
 
-  // Verifica se há itens (enviados ou não) para exibir na tabela
+  // Verifica se há itens TOTAIS (enviados ou não) para exibir na tabela
   if (itens.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">Nenhum item registrado.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">Nenhum item registrado localmente.</td></tr>';
     enviarTodosBtn.disabled = true;
+    textoBotaoEnviar.textContent = 'Enviar Pendentes'; // Reset texto botão
     return;
   }
 
   // Habilita/desabilita botão de enviar baseado nos itens PENDENTES
   enviarTodosBtn.disabled = enviando || itensPendentes.length === 0;
   textoBotaoEnviar.textContent = itensPendentes.length > 0 ? `Enviar ${itensPendentes.length} Pendente(s)` : 'Nenhum Pendente';
-
 
   // Renderiza TODOS os itens, mas aplica estilos diferentes
   [...itens].reverse().forEach((item) => {
@@ -339,7 +364,7 @@ function renderizaLista() {
     if (item.statusEnvio === 'sucesso') {
         rowClass = 'item-enviado'; // Classe para fundo verde
     } else if (item.statusEnvio === 'falha') {
-        rowClass = 'item-falha'; // Classe para fundo vermelho (já definida no CSS)
+        rowClass = 'item-falha'; // Classe para fundo vermelho
     }
     tr.className = rowClass;
 
@@ -360,13 +385,11 @@ function renderizaLista() {
         ${item.statusEnvio === 'sucesso' ? '<i class="fas fa-check-circle text-green-500 item-status-icon" title="Enviado com sucesso"></i>' : ''}
       </td>
     `;
-    // Só adiciona listener de edição se não foi enviado
     if (item.statusEnvio !== 'sucesso') {
         tr.querySelector(`button[data-edit-id="${item.id}"]`).addEventListener('click', () => iniciarEdicaoItem(item.id));
     }
     tr.querySelector(`button[data-delete-id="${item.id}"]`).addEventListener('click', (e) => {
-        const row = e.target.closest('tr');
-        if (row) row.classList.add('fade-out');
+        const row = e.target.closest('tr'); if (row) row.classList.add('fade-out');
         setTimeout(() => excluirItem(item.id), 280);
     });
     tbody.appendChild(tr);
@@ -376,18 +399,14 @@ function excluirItem(id) {
     if (enviando) { alert("Aguarde o término do envio atual."); return; }
     const itemIndex = itens.findIndex(i => i.id === id);
     if (itemIndex > -1) {
-        // Confirmação extra se o item já foi enviado
         if (itens[itemIndex].statusEnvio === 'sucesso') {
-            if (!confirm(`Este item já foi enviado com sucesso. Deseja realmente excluí-lo APENAS da lista local?`)) {
-                // Remove a classe fade-out se o usuário cancelar
+            if (!confirm(`Este item já foi enviado. Deseja excluí-lo APENAS da lista local?`)) {
                  const row = tbody.querySelector(`button[data-delete-id="${id}"]`)?.closest('tr');
                  if(row) row.classList.remove('fade-out');
                 return;
             }
         }
-        itens.splice(itemIndex, 1);
-        salvaLocais();
-        // Opcional: mostraStatus('Item excluído localmente.', 'info');
+        itens.splice(itemIndex, 1); salvaLocais();
     }
 }
 
