@@ -38,7 +38,7 @@
     .status-info { background-color: #6b7280; }
     .status-success { background-color: #10b981; }
     .status-error { background-color: #ef4444; }
-    .status-sending { background-color: #3b82f6; } /* Azul para enviando */
+    .status-sending { background-color: #3b82f6; }
 
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); z-index: 999; display: none;}
     .modal-content { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); z-index: 1000; width: 90%; max-width: 400px; display: none;}
@@ -48,9 +48,8 @@
 
     .input-auto-filled { background-color: #eff6ff; border-color: #93c5fd; }
 
-    /* Barra de Progresso - COR ALTERADA PARA VERDE */
     #progressBarContainer { width: 100%; background-color: #e5e7eb; border-radius: 0.25rem; overflow: hidden; margin-top: 0.5rem; height: 10px; display: none;}
-    #progressBar { width: 0%; height: 100%; background-color: #22c55e; /* Verde (Tailwind green-500) */ transition: width 0.3s ease-in-out;}
+    #progressBar { width: 0%; height: 100%; background-color: #22c55e; transition: width 0.3s ease-in-out;}
 
     .form-group { border: 1px solid #e5e7eb; padding: 1rem; border-radius: 0.375rem; margin-bottom: 1rem; }
     .form-group-title { font-weight: 600; color: #4b5563; margin-bottom: 0.75rem; display: block; font-size: 1.1rem;}
@@ -63,23 +62,13 @@
 
     .item-status-icon { margin-left: 5px; }
 
-    /* Estilo para Nome do Produto Display - ALTERADO */
-    #nomeProdutoDisplay {
-      margin-top: 0.25rem;
-      padding: 0.5rem 0.75rem; /* Similar ao padding de input */
-      background-color: #f3f4f6; /* Cinza claro (Tailwind gray-100) */
-      border: 1px solid #e5e7eb; /* Borda sutil (Tailwind gray-200) */
-      border-radius: 0.25rem;
-      font-style: italic;
-      color: #4b5563; /* Cinza escuro (Tailwind gray-600) */
-      min-height: 2.5rem; /* Altura similar a um input com padding */
-      display: flex;
-      align-items: center;
-    }
-    #nomeProdutoDisplay:empty::before {
-        content: "-"; /* Placeholder se vazio */
-        color: #9ca3af; /* Cinza mais claro (Tailwind gray-400) */
-    }
+    #nomeProdutoDisplay { margin-top: 0.25rem; padding: 0.5rem 0.75rem; background-color: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 0.25rem; font-style: italic; color: #4b5563; min-height: 2.5rem; display: flex; align-items: center; }
+    #nomeProdutoDisplay:empty::before { content: "-"; color: #9ca3af; }
+
+    /* NOVO ESTILO: Fundo verde suave para itens enviados */
+    .item-enviado { background-color: #dcfce7; /* Tailwind green-100 */ }
+    /* Estilo para falha (já existia implicitamente, mas definindo explicitamente) */
+    .item-falha { background-color: #fee2e2; /* Tailwind red-100 */ }
 
   </style>
 </head>
@@ -168,8 +157,7 @@
 
     <div class="mt-8">
       <div class="flex justify-between items-center mb-3">
-        <h2 class="text-xl font-semibold text-gray-800">Itens Pendentes de Envio</h2>
-        <span class="text-sm text-gray-600" id="totalizadorPendentes">Total de Itens: 0 | P.Líq. Total: 0.000 kg</span>
+        <h2 class="text-xl font-semibold text-gray-800">Itens Pendentes</h2> <span class="text-sm text-gray-600" id="totalizadorPendentes">Itens: 0 | P.Líq.: 0.000 kg</span>
       </div>
       <div class="overflow-x-auto">
         <table id="listaItensTable" class="min-w-full border-collapse border border-gray-300">
