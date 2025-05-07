@@ -1,5 +1,5 @@
 // Incremente a versão do cache sempre que arquivos importantes (app.js, index.html) forem alterados.
-const CACHE_NAME = 'inventario-granel-cache-v11'; // NOVA VERSÃO DO CACHE
+const CACHE_NAME = 'inventario-granel-cache-v12'; // NOVA VERSÃO DO CACHE
 const urlsToCache = [
   './',
   './index.html', // Atualizado
@@ -12,11 +12,11 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
-  console.log('[Service Worker] Instalando v11...');
+  console.log('[Service Worker] Instalando v12...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('[Service Worker] Fazendo cache dos arquivos da aplicação v11');
+        console.log('[Service Worker] Fazendo cache dos arquivos da aplicação v12');
         const networkRequests = urlsToCache.map(url => fetch(url, { cache: 'reload' }));
         return Promise.all(networkRequests)
           .then(responses => {
@@ -25,7 +25,6 @@ self.addEventListener('install', event => {
                 console.warn(`[Service Worker] Falha ao buscar ${urlsToCache[index]} da rede durante install. Status: ${response.status}`);
                 return caches.match(urlsToCache[index]).then(cached => cached || null);
               }
-              // Clona a resposta para poder usar no cache e retornar
               const responseToCache = response.clone();
               console.log(`[Service Worker] Cacheando da rede: ${urlsToCache[index]}`)
               return cache.put(urlsToCache[index], responseToCache);
@@ -35,16 +34,16 @@ self.addEventListener('install', event => {
       })
       .then(() => {
         self.skipWaiting();
-        console.log('[Service Worker] Instalação completa v11, skipWaiting chamado.');
+        console.log('[Service Worker] Instalação completa v12, skipWaiting chamado.');
       })
       .catch(error => {
-        console.error('[Service Worker] Falha na instalação do cache v11:', error);
+        console.error('[Service Worker] Falha na instalação do cache v12:', error);
       })
   );
 });
 
 self.addEventListener('activate', event => {
-  console.log('[Service Worker] Ativando v11...');
+  console.log('[Service Worker] Ativando v12...');
   event.waitUntil(
     caches.keys().then(keyList => {
       return Promise.all(keyList.map(key => {
@@ -54,7 +53,7 @@ self.addEventListener('activate', event => {
         }
       }));
     }).then(() => {
-      console.log('[Service Worker] Cache limpo, ativado e pronto para controlar clientes v11.');
+      console.log('[Service Worker] Cache limpo, ativado e pronto para controlar clientes v12.');
       return self.clients.claim();
     })
   );
@@ -71,13 +70,10 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Estratégia: Cache first, then network (com atualização em background se possível)
   event.respondWith(
     caches.match(event.request)
       .then(cachedResponse => {
-        // Tenta buscar na rede em paralelo para atualizar o cache (Stale-While-Revalidate)
         const fetchPromise = fetch(event.request).then(networkResponse => {
-            // Verifica se a resposta da rede é válida antes de atualizar o cache
             if (networkResponse.ok) {
                 caches.open(CACHE_NAME).then(cache => {
                     cache.put(event.request, networkResponse.clone());
@@ -86,11 +82,8 @@ self.addEventListener('fetch', event => {
             return networkResponse;
         }).catch(error => {
             console.error('[Service Worker] Erro ao buscar na rede (Stale-While-Revalidate):', event.request.url, error);
-            // Se a rede falhar E não tivermos cache, propaga o erro
             if (!cachedResponse) throw error;
         });
-
-        // Retorna a resposta do cache imediatamente se existir, senão espera a rede
         return cachedResponse || fetchPromise;
       })
   );
