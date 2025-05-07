@@ -1,13 +1,14 @@
 /* ========= CONFIG ========= */
 const GOOGLE_SCRIPT_URL =
   'https://script.google.com/macros/s/AKfycbwy_aKGV9xAd9sBJRGG66LohrR3s0l_DbDCnOveCEHaE_RGjNqgTHbkiBX8ngks3-nO/exec'; // Mantido o último URL funcional
-const APP_VERSION = '29-abr-2025 - Fix: Habilitar Btn com Peso Extra'; // Versão Atualizada
+const APP_VERSION = '29-abr-2025 - Fix: Carregando Usuário'; // Versão Atualizada
 const ENVIO_DELAY_MS = 500;
 
 /* ========= VARS ========= */
-const ITENS_KEY = 'inv_granel_itens_v3';
+const ITENS_KEY = 'inv_granel_itens_v4'; // Mantendo a chave da versão com edições
 const NOME_USUARIO_KEY = 'inventarioGranelUsuario';
 let nomeUsuario = '', enviando = false, letraPoteSel = 'Nenhuma', itens = [], MAPA = {};
+let editandoItemId = null;
 
 /* refs DOM */
 const $ = id => document.getElementById(id);
@@ -15,26 +16,25 @@ const codigoInp=$('codigoProduto'), nomeDiv=$('nomeProdutoDisplay'),
       taraInp=$('pesoTaraKg'),
       pesoComPoteInp=$('pesoComPoteKg'),
       pesoExtraInp=$('pesoExtraKg'),
-      btnReg=$('registrarItemBtn'), textoBotaoRegistrar=$('textoBotaoRegistrar'), // Adicionado para texto do botão
+      btnReg=$('registrarItemBtn'), textoBotaoRegistrar=$('textoBotaoRegistrar'),
       tbody=$('listaItensBody'),
       letras=$('botoesTaraContainer'),
-      statusDiv=$('statusEnvio'), statusMensagem=$('statusMensagem'), // Adicionado para mensagem de status
-      progressBarContainer=$('progressBarContainer'), progressBar=$('progressBar'), // Adicionado para barra de progresso
+      statusDiv=$('statusEnvio'), statusMensagem=$('statusMensagem'),
+      progressBarContainer=$('progressBarContainer'), progressBar=$('progressBar'),
       nomeDisp=$('nomeUsuarioDisplay'), modal=$('modalNomeUsuario'),
       overlay=$('overlayNomeUsuario'), inpNome=$('inputNomeUsuario'),
       spanLetra=$('letraPoteSelecionado'), enviarTodosBtn=$('enviarTodosBtn'),
-      textoBotaoEnviar=$('textoBotaoEnviar'), // Adicionado para texto do botão enviar
-      contadorPendentes=$('contadorPendentes'), totalizadorPendentes=$('totalizadorPendentes'), // Adicionado para totalizador
+      textoBotaoEnviar=$('textoBotaoEnviar'),
+      contadorPendentes=$('contadorPendentes'), totalizadorPendentes=$('totalizadorPendentes'),
       btnLimpar=$('limparSessaoLocalBtn'),
       btnAlterarNome=$('alterarNomeBtn'), salvaNmBtn=$('salvarNomeUsuarioBtn'),
-      closeModalNomeBtn=$('closeModalNomeBtn'); // Adicionado para botão X do modal
+      closeModalNomeBtn=$('closeModalNomeBtn'),
+      calculoPesoLiquidoDisplay=$('calculoPesoLiquidoDisplay');
 
-// Referências para mensagens de erro dos campos
 const codigoProdutoError = $('codigoProdutoError');
 const pesoTaraKgError = $('pesoTaraKgError');
 const pesoComPoteKgError = $('pesoComPoteKgError');
 const pesoExtraKgError = $('pesoExtraKgError');
-const calculoPesoLiquidoDisplay=$('calculoPesoLiquidoDisplay'); // Adicionado para display de cálculo
 
 
 /* ---------- INIT ---------- */
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   carregaLocais();
   await carregaPotes();
   renderizaLista();
-  verificaNomeUsuario();
+  verificaNomeUsuario(); // Chamada principal para nome do usuário
   updateBotaoRegistrar();
   selecionaBotaoNenhuma();
   limpaMensagensErro();
@@ -74,7 +74,6 @@ function setupEventListeners() {
       if (inp === pesoComPoteInp || inp === taraInp || inp === pesoExtraInp) {
         atualizaDisplayCalculoPeso();
       }
-      // Adicionado pesoExtraInp para também atualizar o botão registrar
       if (inp === codigoInp || inp === pesoComPoteInp || inp === pesoExtraInp) {
         updateBotaoRegistrar();
       }
@@ -84,48 +83,64 @@ function setupEventListeners() {
     }
   });
 
-  // Input Código Produto (Blur) -> Busca Tara Automática
   codigoInp.addEventListener('blur', buscaTaraAutomatica);
-
-  // Botões Tara Rápida (Dinâmicos)
   letras.addEventListener('click', handleTaraRapidaClick);
   const btnNenhumaFixo = document.querySelector('.tara-button[data-letra="Nenhuma"]');
   if (btnNenhumaFixo) {
       btnNenhumaFixo.addEventListener('click', handleTaraRapidaClick);
   }
-
-  // Input Tara Manual -> Desmarca botão rápido
   taraInp.addEventListener('input', handleTaraManualInput);
-
-  // Botão Registrar/Salvar Item Localmente
   btnReg.addEventListener('click', handleRegistrarOuSalvarItem);
-
-  // Botão Enviar Todos
   enviarTodosBtn.addEventListener('click', enviarTodos);
-
-  // Botão Limpar Locais
   btnLimpar.addEventListener('click', limparItensLocais);
 }
 
-/* ---------- Nome Usuário ---------- */
+/* ---------- Nome Usuário (MODIFICADO) ---------- */
 function verificaNomeUsuario() {
   nomeUsuario = localStorage.getItem(NOME_USUARIO_KEY) || '';
-  if (!nomeUsuario) { abrirModalNome(); } else { mostrarNome(); updateBotaoRegistrar(); }
+  mostrarNome(); // ATUALIZA O DISPLAY IMEDIATAMENTE
+  if (!nomeUsuario) {
+    abrirModalNome(); // Abre o modal se não houver nome
+  }
+  // updateBotaoRegistrar() é chamado no DOMContentLoaded após esta função
 }
+
 function abrirModalNome() {
-  inpNome.value = nomeUsuario; overlay.classList.add('active'); modal.classList.add('active'); inpNome.focus(); inpNome.select();
+  inpNome.value = nomeUsuario; // Preenche com nome atual ou vazio
+  overlay.classList.add('active');
+  modal.classList.add('active');
+  inpNome.focus();
+  if(nomeUsuario) inpNome.select(); // Seleciona se já houver nome para facilitar edição
 }
+
 function fecharModalNome() {
     overlay.classList.remove('active');
     modal.classList.remove('active');
+    // Se fechou sem salvar e não tinha nome, o display já foi atualizado por verificaNomeUsuario/mostrarNome
 }
+
 function salvaNome() {
-  const n = inpNome.value.trim(); if (!n) { mostraMensagemErroCampo(inpNome, 'Por favor, digite seu nome.'); return; }
-  limpaErroCampo(inpNome);
-  nomeUsuario = n; localStorage.setItem(NOME_USUARIO_KEY, n); mostrarNome(); fecharModalNome(); updateBotaoRegistrar();
+  const n = inpNome.value.trim();
+  if (!n) {
+    // Em vez de alert, usar a função de erro do campo se o modal tiver um local para isso
+    // Por ora, mantendo alert para simplicidade no modal.
+    alert('Por favor, digite seu nome.');
+    inpNome.focus();
+    return;
+  }
+  nomeUsuario = n;
+  localStorage.setItem(NOME_USUARIO_KEY, n);
+  mostrarNome(); // Atualiza o display principal
+  fecharModalNome();
+  updateBotaoRegistrar(); // Atualiza estado dos botões que dependem do nome
 }
+
 function mostrarNome() {
-  nomeDisp.textContent = `Usuário: ${nomeUsuario}`;
+  if (nomeUsuario) {
+    nomeDisp.textContent = `Usuário: ${nomeUsuario}`;
+  } else {
+    nomeDisp.textContent = 'Usuário: (Não definido - Clique para definir)';
+  }
 }
 
 /* ---------- Carregar Potes (Produtos) ---------- */
@@ -156,14 +171,13 @@ function handleTaraRapidaClick(event) {
         limpaErroCampo(pesoComPoteKgError);
         pesoExtraInp.focus();
         pesoExtraInp.select();
-        // updateBotaoRegistrar(); // Já é chamado pelo input event do pesoComPoteInp
     } else {
         pesoComPoteInp.classList.remove('input-auto-filled');
         pesoComPoteInp.focus();
         pesoComPoteInp.select();
     }
     atualizaDisplayCalculoPeso();
-    updateBotaoRegistrar(); // Garante atualização do botão após qualquer clique de tara
+    updateBotaoRegistrar();
 }
 
 function handleTaraManualInput() {
@@ -204,27 +218,13 @@ function buscaTaraAutomatica() {
   atualizaDisplayCalculoPeso();
 }
 
-/* ---------- Estado Botão Registrar/Salvar (MODIFICADO) ---------- */
+/* ---------- Estado Botão Registrar/Salvar ---------- */
 function updateBotaoRegistrar() {
   const nomeOk = !!nomeUsuario;
   const codigoOk = codigoInp.value.trim() !== '';
-
   const pesoComPoteValor = pesoComPoteInp.value.trim();
   const pesoExtraValor = pesoExtraInp.value.trim();
-
-  // Condição de peso:
-  // 1. Se pesoComPote tiver um valor (incluindo "0" ou "0.000"), está OK.
-  // 2. Se pesoComPote estiver vazio, então pesoExtra DEVE ter um valor.
   const pesoOk = (pesoComPoteValor !== '') || (pesoComPoteValor === '' && pesoExtraValor !== '');
-
-  console.log('updateBotaoRegistrar:', {
-    nomeOk, usuario: nomeUsuario,
-    codigoOk, codigo: codigoInp.value.trim(),
-    pesoComPote: pesoComPoteValor,
-    pesoExtra: pesoExtraValor,
-    pesoOk,
-    editando: editandoItemId
-  });
 
   btnReg.disabled = !(nomeOk && codigoOk && pesoOk);
   textoBotaoRegistrar.textContent = editandoItemId !== null ? 'Salvar Alterações' : 'Registrar Item Localmente';
@@ -259,7 +259,6 @@ function limpaErroCampo(campoIdOuElemento) {
 }
 function limpaMensagensErro() {
     [codigoProdutoError, pesoTaraKgError, pesoComPoteKgError, pesoExtraKgError].forEach(el => limpaErroCampo(el));
-    // Limpa também a classe de erro dos inputs diretamente
     [codigoInp, taraInp, pesoComPoteInp, pesoExtraInp].forEach(inp => inp.classList.remove('input-error'));
 }
 function validaCamposFormulario() {
@@ -276,7 +275,6 @@ function validaCamposFormulario() {
     }
     const pesoComPoteVal = parseFloat(pesoComPoteInp.value.replace(',', '.'));
     const pesoComPoteStr = pesoComPoteInp.value.trim();
-    // Peso com pote é obrigatório A MENOS QUE peso extra seja preenchido
     const pesoExtraVal = parseFloat(pesoExtraInp.value.replace(',', '.'));
     const pesoExtraStr = pesoExtraInp.value.trim();
 
@@ -287,7 +285,6 @@ function validaCamposFormulario() {
         mostraMensagemErroCampo(pesoComPoteKgError, 'Peso com pote inválido.');
         isValid = false;
     }
-
      if (pesoExtraStr !== "" && isNaN(pesoExtraVal)) {
         mostraMensagemErroCampo(pesoExtraKgError, 'Peso extra inválido.');
         isValid = false;
@@ -305,13 +302,10 @@ function atualizaDisplayCalculoPeso() {
         calculoPesoLiquidoDisplay.textContent = "";
         return;
     }
-
     const pesoLiquidoPote = pesoComPote - tara;
     const pesoLiquidoTotal = +(pesoLiquidoPote + pesoExtra).toFixed(3);
-
     calculoPesoLiquidoDisplay.textContent = `Peso Líquido Calculado: ${pesoLiquidoTotal.toFixed(3)} kg`;
 }
-
 
 /* ---------- Registrar ou Salvar Item Localmente ---------- */
 function handleRegistrarOuSalvarItem() {
@@ -319,39 +313,27 @@ function handleRegistrarOuSalvarItem() {
         mostraStatus('Verifique os erros no formulário.', 'error');
         return;
     }
-
     const codigo = codigoInp.value.trim();
     let taraInput = parseFloat(taraInp.value.replace(',', '.')) || 0;
-    // Se pesoComPoteInp estiver vazio, parseFloat('') dá NaN, então || 0 garante que seja 0.
     const pesoComPote = parseFloat(pesoComPoteInp.value.replace(',', '.')) || 0;
     const pesoExtra = parseFloat(pesoExtraInp.value.replace(',', '.')) || 0;
-
     let taraCalculo = taraInput;
     let letraPoteCalculo = letraPoteSel;
 
-    // Se o campo pesoComPote foi deixado VAZIO (ou era 0 e Nenhuma foi clicado),
-    // e há peso extra, a tara deve ser 0.
-    if (pesoComPote === 0 && pesoExtra > 0) {
-        if(pesoComPoteInp.value.trim() === "" || pesoComPoteInp.classList.contains('input-auto-filled')){
-            console.log("Peso com pote vazio/auto-zerado e peso extra existe. Forçando tara 0 e letra Nenhuma.");
-            taraCalculo = 0;
-            letraPoteCalculo = 'Nenhuma';
-        }
+    if (pesoComPote === 0 && (pesoComPoteInp.value.trim() === "0" || pesoComPoteInp.value.trim() === "0.000" || pesoComPoteInp.classList.contains('input-auto-filled'))) {
+        taraCalculo = 0;
+        letraPoteCalculo = 'Nenhuma';
     }
-
 
     const pesoLiquidoPote = pesoComPote - taraCalculo;
     const pesoLiquidoTotal = +(pesoLiquidoPote + pesoExtra).toFixed(3);
 
     if (pesoLiquidoTotal <= 0 && !(pesoComPote === 0 && pesoExtra > 0 && taraCalculo === 0)) {
-         // Permite registro se o peso líquido total for > 0
-         // OU se for o caso específico de pote vazio (pesoComPote=0, taraCalculo=0) e SÓ pesoExtra > 0
         if (!(pesoComPote === 0 && pesoExtra > 0 && taraCalculo === 0 && pesoLiquidoTotal === pesoExtra)) {
             mostraMensagemErroCampo(calculoPesoLiquidoDisplay, 'Peso Líquido Total zerado ou negativo.');
             return;
         }
     }
-
 
     const produtoInfo = MAPA[codigo] || {};
     const itemData = {
@@ -374,20 +356,14 @@ function handleRegistrarOuSalvarItem() {
         itens.push(itemData);
         mostraStatus('Item registrado localmente!', 'success');
     }
-
-    salvaLocais();
-    limparFormulario();
-    codigoInp.focus();
-    updateBotaoRegistrar();
+    salvaLocais(); limparFormulario(); codigoInp.focus(); updateBotaoRegistrar();
 }
 
 function limparFormulario() {
     codigoInp.value = ''; taraInp.value = ''; pesoComPoteInp.value = ''; pesoExtraInp.value = '';
-    nomeDiv.textContent = '';
-    calculoPesoLiquidoDisplay.textContent = "";
+    nomeDiv.textContent = ''; calculoPesoLiquidoDisplay.textContent = "";
     pesoComPoteInp.classList.remove('input-auto-filled');
-    selecionaBotaoNenhuma();
-    editandoItemId = null;
+    selecionaBotaoNenhuma(); editandoItemId = null;
     textoBotaoRegistrar.textContent = 'Registrar Item Localmente';
     btnReg.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
     btnReg.classList.add('bg-green-600', 'hover:bg-green-700');
@@ -396,180 +372,65 @@ function limparFormulario() {
 
 /* ---------- Edição de Itens ---------- */
 function iniciarEdicaoItem(id) {
-    const itemParaEditar = itens.find(item => item.id === id);
-    if (!itemParaEditar) return;
-
+    const itemParaEditar = itens.find(item => item.id === id); if (!itemParaEditar) return;
     editandoItemId = id;
-
-    codigoInp.value = itemParaEditar.codigo;
-    taraInp.value = itemParaEditar.tara.toFixed(3);
+    codigoInp.value = itemParaEditar.codigo; taraInp.value = itemParaEditar.tara.toFixed(3);
     pesoComPoteInp.value = itemParaEditar.pesoComPote.toFixed(3);
     pesoExtraInp.value = itemParaEditar.pesoExtra.toFixed(3);
     nomeDiv.textContent = itemParaEditar.nomeProduto;
-
-    desmarcaBotoesTara();
-    letraPoteSel = itemParaEditar.letraPote;
-    const btnLetra = document.querySelector(`.tara-button[data-letra="${letraPoteSel}"]`); // Inclui o fixo "Nenhuma"
-    if (btnLetra) {
-        btnLetra.classList.add('selected');
-    } else {
-        letraPoteSel = 'Manual';
-    }
+    desmarcaBotoesTara(); letraPoteSel = itemParaEditar.letraPote;
+    const btnLetra = document.querySelector(`.tara-button[data-letra="${letraPoteSel}"]`);
+    if (btnLetra) { btnLetra.classList.add('selected'); } else { letraPoteSel = 'Manual'; }
     spanLetra.textContent = `(${letraPoteSel})`;
     pesoComPoteInp.classList.remove('input-auto-filled');
-
-
     textoBotaoRegistrar.textContent = 'Salvar Alterações';
     btnReg.classList.remove('bg-green-600', 'hover:bg-green-700');
     btnReg.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
-    updateBotaoRegistrar();
-    codigoInp.focus();
-    atualizaDisplayCalculoPeso();
+    updateBotaoRegistrar(); codigoInp.focus(); atualizaDisplayCalculoPeso();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-
 /* ---------- Renderizar Lista de Pendentes ---------- */
 function renderizaLista() {
-  tbody.innerHTML = '';
-  totalizadorPendentes.textContent = `Total de Itens: ${itens.length}`;
-
-  if (itens.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">Nenhum item local pendente.</td></tr>';
-    enviarTodosBtn.disabled = true;
-    return;
-  }
-
+  tbody.innerHTML = ''; totalizadorPendentes.textContent = `Total de Itens: ${itens.length}`;
+  if (itens.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">Nenhum item local pendente.</td></tr>'; enviarTodosBtn.disabled = true; return; }
   enviarTodosBtn.disabled = enviando;
-
   [...itens].reverse().forEach((item) => {
-    const tr = document.createElement('tr');
-    if (item.statusEnvio === 'falha') tr.classList.add('bg-red-100');
-
+    const tr = document.createElement('tr'); if (item.statusEnvio === 'falha') tr.classList.add('bg-red-100');
     const horaFormatada = new Date(item.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-    tr.innerHTML = `
-      <td class="border px-1 py-1 sm:px-2">${item.codigo}</td>
-      <td class="border px-1 py-1 sm:px-2 text-right">${item.pesoLiquido.toFixed(3)}</td>
-      <td class="border px-1 py-1 sm:px-2 text-right">${item.tara.toFixed(3)} (${item.letraPote})</td>
-      <td class="border px-1 py-1 sm:px-2 text-xs text-center">${horaFormatada}</td>
-      <td class="border px-1 py-1 sm:px-2 text-center">
-        <button class="text-blue-500 hover:text-blue-700 p-1 mr-1" data-edit-id="${item.id}" title="Editar este item">
-          <i class="fas fa-edit"></i>
-        </button>
-        <button class="text-red-500 hover:text-red-700 p-1" data-delete-id="${item.id}" title="Excluir este item">
-          <i class="fas fa-trash-alt"></i>
-        </button>
-        ${item.statusEnvio === 'falha' ? '<i class="fas fa-exclamation-triangle text-yellow-500 item-status-icon" title="Falha no último envio"></i>' : ''}
-      </td>
-    `;
+    tr.innerHTML = ` <td class="border px-1 py-1 sm:px-2">${item.codigo}</td> <td class="border px-1 py-1 sm:px-2 text-right">${item.pesoLiquido.toFixed(3)}</td> <td class="border px-1 py-1 sm:px-2 text-right">${item.tara.toFixed(3)} (${item.letraPote})</td> <td class="border px-1 py-1 sm:px-2 text-xs text-center">${horaFormatada}</td> <td class="border px-1 py-1 sm:px-2 text-center"> <button class="text-blue-500 hover:text-blue-700 p-1 mr-1" data-edit-id="${item.id}" title="Editar este item"> <i class="fas fa-edit"></i> </button> <button class="text-red-500 hover:text-red-700 p-1" data-delete-id="${item.id}" title="Excluir este item"> <i class="fas fa-trash-alt"></i> </button> ${item.statusEnvio === 'falha' ? '<i class="fas fa-exclamation-triangle text-yellow-500 item-status-icon" title="Falha no último envio"></i>' : ''} </td> `;
     tr.querySelector(`button[data-edit-id="${item.id}"]`).addEventListener('click', () => iniciarEdicaoItem(item.id));
-    tr.querySelector(`button[data-delete-id="${item.id}"]`).addEventListener('click', (e) => {
-        const row = e.target.closest('tr');
-        if (row) row.classList.add('fade-out');
-        setTimeout(() => excluirItem(item.id), 280);
-    });
+    tr.querySelector(`button[data-delete-id="${item.id}"]`).addEventListener('click', (e) => { const row = e.target.closest('tr'); if (row) row.classList.add('fade-out'); setTimeout(() => excluirItem(item.id), 280); });
     tbody.appendChild(tr);
   });
 }
-
 function excluirItem(id) {
-    if (enviando) { alert("Aguarde o término do envio atual."); return; }
-    const itemIndex = itens.findIndex(i => i.id === id);
-    if (itemIndex > -1) {
-        itens.splice(itemIndex, 1);
-        salvaLocais();
-    }
+    if (enviando) { alert("Aguarde o término do envio atual."); return; } const itemIndex = itens.findIndex(i => i.id === id); if (itemIndex > -1) { itens.splice(itemIndex, 1); salvaLocais(); }
 }
-
 
 /* ---------- Envio para Google Apps Script ---------- */
 async function enviarTodos() {
   if (enviando || itens.length === 0) return;
-
   const itensParaEnviarAgora = itens.filter(item => item.statusEnvio !== 'sucesso');
-
-  if (itensParaEnviarAgora.length === 0) {
-      mostraStatus('Nenhum item pendente ou com falha para enviar.', 'info');
-      return;
-  }
-
-  enviando = true;
-  enviarTodosBtn.disabled = true;
-  textoBotaoEnviar.textContent = 'Enviando...';
-  btnLimpar.disabled = true;
-  btnReg.disabled = true;
-
-  progressBarContainer.style.display = 'block';
-  progressBar.style.width = '0%';
-
-  let enviadosComSucessoCount = 0;
-  let falhasCount = 0;
-
+  if (itensParaEnviarAgora.length === 0) { mostraStatus('Nenhum item pendente ou com falha para enviar.', 'info'); return; }
+  enviando = true; enviarTodosBtn.disabled = true; textoBotaoEnviar.textContent = 'Enviando...'; btnLimpar.disabled = true; btnReg.disabled = true;
+  progressBarContainer.style.display = 'block'; progressBar.style.width = '0%';
+  let enviadosComSucessoCount = 0; let falhasCount = 0;
   for (let i = 0; i < itensParaEnviarAgora.length; i++) {
-    const item = itensParaEnviarAgora[i];
-    const progresso = Math.round(((i + 1) / itensParaEnviarAgora.length) * 100);
+    const item = itensParaEnviarAgora[i]; const progresso = Math.round(((i + 1) / itensParaEnviarAgora.length) * 100);
     mostraStatus(`Enviando ${i + 1}/${itensParaEnviarAgora.length}: Código ${item.codigo}...`, 'sending', 0, progresso);
-
-    try {
-      const resultadoEnvio = await enviarItem(item);
-       if (resultadoEnvio && resultadoEnvio.result === 'success' && resultadoEnvio.idLocal == item.id) {
-           enviadosComSucessoCount++;
-           const indexOriginal = itens.findIndex(original => original.id === item.id);
-           if (indexOriginal > -1) itens[indexOriginal].statusEnvio = 'sucesso';
-       } else {
-           throw new Error(resultadoEnvio.message || 'Resposta inesperada do servidor.');
-       }
-    } catch (error) {
-      console.error('Falha ao enviar item:', item.id, error);
-      falhasCount++;
-      const indexOriginal = itens.findIndex(original => original.id === item.id);
-      if (indexOriginal > -1) itens[indexOriginal].statusEnvio = 'falha';
-      mostraStatus(`Falha item ${item.codigo}: ${error.message}`, 'error', 5000, progresso);
-      await new Promise(resolve => setTimeout(resolve, ENVIO_DELAY_MS * 1.5));
-    }
-    if (i < itensParaEnviarAgora.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, ENVIO_DELAY_MS));
-    }
+    try { const resultadoEnvio = await enviarItem(item); if (resultadoEnvio && resultadoEnvio.result === 'success' && resultadoEnvio.idLocal == item.id) { enviadosComSucessoCount++; const indexOriginal = itens.findIndex(original => original.id === item.id); if (indexOriginal > -1) itens[indexOriginal].statusEnvio = 'sucesso'; } else { throw new Error(resultadoEnvio.message || 'Resposta inesperada do servidor.'); }
+    } catch (error) { console.error('Falha ao enviar item:', item.id, error); falhasCount++; const indexOriginal = itens.findIndex(original => original.id === item.id); if (indexOriginal > -1) itens[indexOriginal].statusEnvio = 'falha'; mostraStatus(`Falha item ${item.codigo}: ${error.message}`, 'error', 5000, progresso); await new Promise(resolve => setTimeout(resolve, ENVIO_DELAY_MS * 1.5)); }
+    if (i < itensParaEnviarAgora.length - 1) { await new Promise(resolve => setTimeout(resolve, ENVIO_DELAY_MS)); }
   }
-
-  salvaLocais();
-
-  enviando = false;
-  btnLimpar.disabled = false;
-  updateBotaoRegistrar();
-  textoBotaoEnviar.textContent = 'Enviar Pendentes';
-  progressBarContainer.style.display = 'none';
-
-  if (falhasCount === 0 && enviadosComSucessoCount > 0) {
-    mostraStatus(`Todos os ${enviadosComSucessoCount} itens foram enviados com sucesso!`, 'success');
-  } else if (falhasCount > 0 && enviadosComSucessoCount > 0) {
-    mostraStatus(`${enviadosComSucessoCount} itens enviados, ${falhasCount} falharam.`, 'error');
-  } else if (falhasCount > 0 && enviadosComSucessoCount === 0) {
-    mostraStatus(`Falha ao enviar todos os ${falhasCount} itens.`, 'error');
-  } else if (enviadosComSucessoCount === 0 && falhasCount === 0 && itensParaEnviarAgora.length > 0) {
-     mostraStatus('Nenhum item processado. Verifique.', 'info');
-  } else {
-     mostraStatus('Não havia itens para enviar.', 'info');
-  }
+  salvaLocais(); // Salva os status de envio
+  enviando = false; btnLimpar.disabled = false; updateBotaoRegistrar(); textoBotaoEnviar.textContent = 'Enviar Pendentes'; progressBarContainer.style.display = 'none';
+  if (falhasCount === 0 && enviadosComSucessoCount > 0) { mostraStatus(`Todos os ${enviadosComSucessoCount} itens foram enviados com sucesso!`, 'success'); } else if (falhasCount > 0 && enviadosComSucessoCount > 0) { mostraStatus(`${enviadosComSucessoCount} itens enviados, ${falhasCount} falharam.`, 'error'); } else if (falhasCount > 0 && enviadosComSucessoCount === 0) { mostraStatus(`Falha ao enviar todos os ${falhasCount} itens.`, 'error'); } else if (enviadosComSucessoCount === 0 && falhasCount === 0 && itensParaEnviarAgora.length > 0) { mostraStatus('Nenhum item processado. Verifique.', 'info'); } else { mostraStatus('Não havia itens para enviar.', 'info'); }
 }
 
 async function enviarItem(item) {
-  const formData = new FormData();
-  formData.append('timestamp', item.timestamp); formData.append('usuario', item.usuario);
-  formData.append('codigo', item.codigo); formData.append('nomeProduto', item.nomeProduto);
-  formData.append('pesoLiquido', item.pesoLiquido); formData.append('tara', item.tara);
-  formData.append('pesoComPote', item.pesoComPote); formData.append('pesoExtra', item.pesoExtra);
-  formData.append('letraPote', item.letraPote); formData.append('idLocal', item.id);
-
-  try {
-    const response = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
-    let responseData = {}; const contentType = response.headers.get("content-type");
-    if (contentType && contentType.indexOf("application/json") !== -1) { responseData = await response.json(); }
-    else { const textResponse = await response.text(); console.error("Resposta não JSON:", response.status, textResponse); throw new Error(`Erro ${response.status}: Resposta inválida.`); }
-    if (!response.ok) { console.error('Erro HTTP:', response.status, responseData); throw new Error(responseData.message || `Erro de rede ${response.status}`); }
-    if(responseData.result !== 'success') { console.error('Script Erro:', responseData); throw new Error(responseData.message || `Erro script.`); }
-    console.log('Sucesso script idLocal', item.id, ':', responseData); return responseData;
+  const formData = new FormData(); formData.append('timestamp', item.timestamp); formData.append('usuario', item.usuario); formData.append('codigo', item.codigo); formData.append('nomeProduto', item.nomeProduto); formData.append('pesoLiquido', item.pesoLiquido); formData.append('tara', item.tara); formData.append('pesoComPote', item.pesoComPote); formData.append('pesoExtra', item.pesoExtra); formData.append('letraPote', item.letraPote); formData.append('idLocal', item.id);
+  try { const response = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData }); let responseData = {}; const contentType = response.headers.get("content-type"); if (contentType && contentType.indexOf("application/json") !== -1) { responseData = await response.json(); } else { const textResponse = await response.text(); console.error("Resposta não JSON:", response.status, textResponse); throw new Error(`Erro ${response.status}: Resposta inválida.`); } if (!response.ok) { console.error('Erro HTTP:', response.status, responseData); throw new Error(responseData.message || `Erro de rede ${response.status}`); } if(responseData.result !== 'success') { console.error('Script Erro:', responseData); throw new Error(responseData.message || `Erro script.`); } console.log('Sucesso script idLocal', item.id, ':', responseData); return responseData;
   } catch (error) { console.error("Falha fetch/processamento idLocal:", item.id, error); return { result: 'error', message: error.message, idLocal: item.id }; }
 }
 
@@ -577,147 +438,92 @@ async function enviarItem(item) {
 let statusTimeout;
 function mostraStatus(mensagem, tipo = 'info', duracaoMs = 4000, progresso = -1) {
   clearTimeout(statusTimeout);
-  statusMensagem.textContent = mensagem; // Usa o span para a mensagem
+  statusMensagem.textContent = mensagem;
   statusDiv.className = `status-base status-${tipo}`;
   statusDiv.style.display = 'block';
-
-  if (progresso >= 0) {
-    progressBarContainer.style.display = 'block';
-    progressBar.style.width = `${progresso}%`;
-  } else {
-    progressBarContainer.style.display = 'none';
-  }
-
-  if (tipo !== 'sending' && duracaoMs > 0) {
-    statusTimeout = setTimeout(() => {
-      statusDiv.style.display = 'none'; statusMensagem.textContent = ''; statusDiv.className = 'status-base'; progressBarContainer.style.display = 'none';
-    }, duracaoMs);
-  }
+  if (progresso >= 0) { progressBarContainer.style.display = 'block'; progressBar.style.width = `${progresso}%`; }
+  else { progressBarContainer.style.display = 'none'; }
+  if (tipo !== 'sending' && duracaoMs > 0) { statusTimeout = setTimeout(() => { statusDiv.style.display = 'none'; statusMensagem.textContent = ''; statusDiv.className = 'status-base'; progressBarContainer.style.display = 'none'; }, duracaoMs); }
 }
 ```
 
 ---
 
-**Google Apps Script (`Código.gs`)**
-*(Este é o código que você já tem e está funcionando, com o nome da aba "Página1". Nenhuma alteração necessária aqui se ele já recebe e salva os dados corretamente, incluindo `pesoExtra` se você o adicionou lá.)*
+**`sw.js` (Service Worker com Cache Atualizado)**
 
 ```javascript
-/**
- * APP INVENTÁRIO – Script Finalizado com Colunas Ajustadas
- * (28-abr-2025)
- */
+// Incremente a versão do cache sempre que arquivos importantes (app.js, index.html, potes.json) forem alterados.
+const CACHE_NAME = 'inventario-granel-cache-v8'; // NOVA VERSÃO DO CACHE
+const urlsToCache = [
+  './',
+  './index.html',
+  './app.js',
+  './manifest.json',
+  './potes.json',
+  // CDNs
+  'https://cdn.tailwindcss.com',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'
+];
 
-/* ===== CONFIGURAÇÃO ===== */
-// Nome exato da aba da sua planilha onde os dados serão salvos
-const SHEET_NAME = "Página1";
+self.addEventListener('install', event => {
+  console.log('[Service Worker] Instalando...');
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        console.log('[Service Worker] Fazendo cache dos arquivos da aplicação');
+        return cache.addAll(urlsToCache);
+      })
+      .then(() => {
+        self.skipWaiting(); // Força o novo SW a se tornar ativo imediatamente
+        console.log('[Service Worker] Instalação completa, skipWaiting chamado.');
+      })
+      .catch(error => {
+        console.error('[Service Worker] Falha na instalação do cache:', error);
+      })
+  );
+});
 
-/**
- * Função principal que recebe os dados via POST do PWA.
- * @param {Object} e O objeto de evento do POST, contendo os parâmetros.
- * @return {ContentService.TextOutput} Resposta JSON indicando sucesso ou erro.
- */
-function doPost(e) {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000); // Espera até 30 segundos para obter o bloqueio
+self.addEventListener('activate', event => {
+  console.log('[Service Worker] Ativando...');
+  event.waitUntil(
+    caches.keys().then(keyList => {
+      return Promise.all(keyList.map(key => {
+        if (key !== CACHE_NAME) {
+          console.log('[Service Worker] Removendo cache antigo:', key);
+          return caches.delete(key);
+        }
+      }));
+    }).then(() => {
+      console.log('[Service Worker] Cache limpo, ativado e pronto para controlar clientes.');
+      return self.clients.claim(); // Permite que o SW ativo controle clientes imediatamente
+    })
+  );
+});
 
-  var ss = null;
-  var sheet = null;
-  var idLocal = e.parameter.idLocal || null; // Pega ID local para resposta
-
-  try {
-    // Acessa a planilha e a aba
-    try {
-      ss = SpreadsheetApp.getActiveSpreadsheet();
-      sheet = ss.getSheetByName(SHEET_NAME);
-      if (!sheet) {
-        throw new Error("Planilha/Aba com o nome '" + SHEET_NAME + "' não encontrada.");
-      }
-    } catch (ssError) {
-       Logger.log('Erro ao acessar Planilha/Aba: ' + ssError);
-       throw new Error('Erro interno do servidor ao acessar a planilha de destino.');
-    }
-
-    // Validação básica dos parâmetros recebidos
-    if (!e || !e.parameter || !e.parameter.codigo || e.parameter.pesoLiquido === undefined || e.parameter.usuario === undefined || e.parameter.pesoComPote === undefined ) {
-        Logger.log('Erro: Parâmetros obrigatórios ausentes. Recebido: ' + JSON.stringify(e.parameter));
-        throw new Error('Dados incompletos recebidos do aplicativo.');
-    }
-
-    // Extrai e formata os parâmetros
-    var codigo = e.parameter.codigo || '';
-    var nomeProduto = e.parameter.nomeProduto || 'N/D';
-    var pesoLiquidoTotal = parseAndFormatFloat(e.parameter.pesoLiquido);
-    var pesoComPote = parseAndFormatFloat(e.parameter.pesoComPote);
-    var pesoExtra = parseAndFormatFloat(e.parameter.pesoExtra); // Recebe o peso extra
-    var tara = parseAndFormatFloat(e.parameter.tara);
-    var letraPote = e.parameter.letraPote || 'N/D';
-    var usuario = e.parameter.usuario || 'Desconhecido';
-    var timestamp = e.parameter.timestamp ? new Date(e.parameter.timestamp) : new Date();
-
-    // Define a ordem dos dados para a linha da planilha
-    // Certifique-se que esta ordem corresponde às colunas na sua Planilha Google
-    var rowData = [
-      codigo,             // A: CodigoProduto
-      nomeProduto,        // B: NomeProduto
-      pesoLiquidoTotal,   // C: PesoLiquido_kg_Total
-      pesoComPote,        // D: Peso_com_pote
-      pesoExtra,          // E: Peso_Estoque_Extra
-      tara,               // F: Tara_kg
-      letraPote,          // G: LetraPote
-      usuario,            // H: Usuario
-      timestamp           // I: Timestamp
-    ];
-
-    // Adiciona a nova linha
-    try {
-        sheet.appendRow(rowData);
-        Logger.log('Linha adicionada com sucesso para idLocal ' + idLocal + ': ' + JSON.stringify(rowData));
-    } catch (appendError){
-        Logger.log('Erro ao adicionar linha para idLocal ' + idLocal + ': ' + appendError);
-        throw new Error('Erro interno do servidor ao salvar os dados na planilha.');
-    }
-
-    var responseJson = JSON.stringify({
-      result: 'success',
-      message: 'Dados recebidos e salvos com sucesso!',
-      idLocal: idLocal
-    });
-    return ContentService.createTextOutput(responseJson)
-                         .setMimeType(ContentService.MimeType.JSON);
-
-  } catch (error) {
-    Logger.log("Erro em doPost para idLocal " + idLocal + ": " + error.toString() + (error.stack ? "\nStack: " + error.stack : ""));
-    Logger.log("Parâmetros recebidos: " + JSON.stringify(e.parameter));
-
-    var errorResponseJson = JSON.stringify({
-      result: 'error',
-      message: 'Erro no servidor: ' + error.message,
-      idLocal: idLocal
-    });
-    return ContentService.createTextOutput(errorResponseJson)
-                         .setMimeType(ContentService.MimeType.JSON);
-
-  } finally {
-    lock.releaseLock();
-    Logger.log('Bloqueio liberado para idLocal ' + idLocal);
+self.addEventListener('fetch', event => {
+  if (event.request.method === 'POST') {
+    event.respondWith(fetch(event.request).catch(error => {
+        console.error('[Service Worker] Erro no fetch POST:', error);
+        return new Response(JSON.stringify({ result: 'error', message: 'Falha na conexão de rede.' }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+    }));
+    return;
   }
-}
 
-function parseAndFormatFloat(valueString) {
-  if (valueString === null || valueString === undefined) {
-    return 0;
-  }
-  var trimmedString = String(valueString).trim();
-  if (trimmedString === "") {
-    return 0;
-  }
-  var value = parseFloat(trimmedString.replace(',', '.'));
-  return isNaN(value) ? 0 : value;
-}
-
-function doGet(e) {
-  return ContentService.createTextOutput("Script do Inventário Granel está ativo e pronto para receber dados via POST.");
-}
-```
-
-Espero que agora tudo funcione perfeitamen
+  event.respondWith(
+    caches.match(event.request)
+      .then(cachedResponse => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request).then(
+          networkResponse => {
+            return networkResponse;
+          }
+        ).catch(error => {
+          console.error('[Service Worker] Erro ao buscar na rede:', event.request.url, error);
+        });
+      })
+  );
+});
