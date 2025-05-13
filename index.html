@@ -65,6 +65,18 @@
     #nomeProdutoDisplay:empty::before { content: "-"; color: #9ca3af; }
     .item-enviado { background-color: #dcfce7; }
     .item-falha { background-color: #fee2e2; }
+
+    /* Estilo para o brilho neon no campo Peso Extra Estoque */
+    .input-neon-glow {
+      border: 1px solid #fcd34d; /* Tailwind yellow-300 */
+      box-shadow: 0 0 5px rgba(252, 211, 77, 0.5), 0 0 8px rgba(252, 211, 77, 0.3); /* Sombra suave amarela */
+      transition: box-shadow 0.3s ease-in-out, border-color 0.3s ease-in-out;
+    }
+    .input-neon-glow:focus {
+      border-color: #fbbf24; /* Tailwind amber-400 (um pouco mais forte) */
+      box-shadow: 0 0 8px rgba(251, 191, 36, 0.7), 0 0 12px rgba(251, 191, 36, 0.5); /* Sombra amarela/ambar mais intensa no foco */
+      outline: none; /* Remove o outline padrão do browser, pois já temos o brilho */
+    }
   </style>
 </head>
 <body class="bg-gray-100 p-2 sm:p-4 font-sans">
@@ -128,9 +140,13 @@
                 <div id="pesoComPoteKgError" class="error-message"></div>
             </div>
             <div>
-                <label for="pesoExtraKg" class="block text-sm font-medium text-gray-700">Peso Extra Estoque (kg)</label>
+                {/* Rótulo do Peso Extra Estoque MODIFICADO */}
+                <label for="pesoExtraKg" class="block text-sm font-medium text-gray-700">
+                    Peso Extra <strong class="uppercase font-bold text-amber-500">ESTOQUE</strong> (kg)
+                </label>
+                {/* Input do Peso Extra Estoque MODIFICADO com a classe .input-neon-glow */}
                 <input type="text" inputmode="decimal" id="pesoExtraKg" placeholder="0.000"
-                        class="mt-1 block w-full border border-gray-300 p-2 rounded" enterkeyhint="go">
+                        class="mt-1 block w-full p-2 rounded input-neon-glow" enterkeyhint="go">
                 <p class="mt-1 text-xs text-gray-500">Opcional: Peso de pacotes fechados, etc.</p>
                 <div id="pesoExtraKgError" class="error-message"></div>
             </div>
